@@ -1,0 +1,189 @@
+(undo-tree-save-format-version . 1)
+"9ebf723a03a589475c40019ac70aa432a6a80822"
+[nil nil nil nil (25315 34651 972370 927000) 0 nil]
+([nil nil ((nil rear-nonsticky nil 1 . 2) (#("
+" 0 1 (fontified nil)) . -12818) (1 . 12819) (t 25315 34651 976376 45000)) nil (25315 34905 652836 657000) 0 nil])
+([nil nil ((#("
+" 0 1 (fontified t rear-nonsticky t)) . 1) (undo-tree-id26 . -1)) nil (25315 34905 652833 794000) 0 nil])
+([nil nil ((#("function discretization(x::AbstractVector; alg = DiscretizeUniformWidth(:scott))
+    be = binedges(alg, x)
+    disc = LinearDiscretizer(be)
+    bi = encode(disc, x)
+    return be, bi
+end
+
+function discretizations_bulk(X::AbstractMatrix; alg = DiscretizeBayesianBlocks())
+    binedges_all = [binedges(alg, x) for x in eachcol(X)]
+    discretizers_all = map(LinearDiscretizer, binedges_all)
+    # counts_all = [get_discretization_counts(d, x) for (d, x) in zip(discretizers_all, eachcol(X))]
+    binids_all = [encode(discretizers_all[i], X[:, i]) for i = 1:size(X, 2)]
+    return discretizers_all, binedges_all, binids_all
+end
+
+" 0 8 (fontified t face font-lock-keyword-face) 8 9 (fontified t) 9 23 (fontified t face font-lock-function-name-face) 23 27 (fontified t) 27 41 (fontified t face font-lock-type-face) 41 72 (fontified t) 72 78 (fontified t face julia-quoted-symbol-face) 78 81 (fontified t) 81 169 (fontified t) 169 175 (fontified t face font-lock-keyword-face) 175 183 (fontified t) 183 186 (fontified t face font-lock-keyword-face) 186 188 (fontified t) 188 196 (fontified t face font-lock-keyword-face) 196 197 (fontified t) 197 217 (fontified t face font-lock-function-name-face) 217 221 (fontified t) 221 235 (fontified t face font-lock-type-face) 235 308 (fontified t) 308 311 (fontified t face font-lock-keyword-face) 311 314 (fontified t) 314 316 (fontified t face font-lock-keyword-face) 316 393 (fontified t) 393 395 (fontified t face font-lock-comment-delimiter-face) 395 490 (fontified t face font-lock-comment-face) 490 545 (fontified t) 545 548 (fontified t face font-lock-keyword-face) 548 551 (fontified t) 551 552 (fontified t face font-lock-keyword-face) 552 571 (fontified t) 571 577 (fontified t face font-lock-keyword-face) 577 621 (fontified t) 621 624 (fontified t face font-lock-keyword-face) 624 626 (fontified t)) . 1) (undo-tree-id13 . -625) (undo-tree-id14 . -625) (undo-tree-id15 . -187) (undo-tree-id16 . -625) (undo-tree-id17 . -187) (undo-tree-id18 . -187) (undo-tree-id19 . -625) (undo-tree-id20 . -625) (undo-tree-id21 . -187) (undo-tree-id22 . -187) (undo-tree-id23 . -187) (undo-tree-id24 . -625) (undo-tree-id25 . -187) 626) nil (25315 34905 652830 92000) 0 nil])
+([nil nil ((#("#=
+function discretized_joint_distribution(prod::AbstractMatrix, X::AbstractMatrix, i::Int, j::Int, binids_i::Vector{Int}, binids_j::Vector{Int}, binedges_i::AbstractVector, binedges_j::AbstractVector)
+    # computes the discrete joint distribution of 
+    # (X[i], X_next[j], X[j])
+    π_genes = zeros(length(binedges_i), length(binedges_j), length(binedges_j))
+    @inbounds for m = 1:size(X, 1)
+        @inbounds for n = 1:size(X, 1)
+            π_genes[binids_i[m], binids_j[n], binids_j[m]] += prod[m, n] 
+        end
+    end
+    return π_genes
+end
+=#
+
+function discretized_joint_distribution(prod::AbstractSparseMatrix, X0::AbstractMatrix, X1::AbstractMatrix, i::Int, j::Int; alg = DiscretizeUniformWidth(:scott))
+    row_idxs = findnz(sum(prod; dims = 2))[1]
+    col_idxs = findnz(sum(prod; dims = 1))[2]
+    binedges_i_prev, binids_i_prev = discretization(X0[row_idxs, i]; alg = alg)
+    binedges_j_next, binids_j_next = discretization(X1[col_idxs, j]; alg = alg)
+    binedges_j_prev, binids_j_prev = discretization(X0[row_idxs, j]; alg = alg)
+    discretized_joint_distribution(prod[row_idxs, :][:, col_idxs], 
+                                    binids_i_prev, binids_j_next, binids_j_prev,
+                                    binedges_i_prev, binedges_j_next, binedges_j_prev)
+end
+
+function discretized_joint_distribution_undir(prod::AbstractSparseMatrix, X::AbstractMatrix, i::Int, j::Int; alg = DiscretizeUniformWidth(:scott))
+    row_idxs = findnz(sum(prod; dims = 2))[1]
+    col_idxs = findnz(sum(prod; dims = 1))[2]
+    binedges_i, binids_i = discretization(X[row_idxs, i]; alg = alg)
+    binedges_j, binids_j = discretization(X[col_idxs, j]; alg = alg)
+    discretized_joint_distribution_undir(prod[row_idxs, :][:, col_idxs],
+                                        binids_i, binids_j,
+                                        binedges_i, binedges_j)
+end
+
+function discretized_joint_distribution_undir(p::AbstractSparseVector, X::AbstractMatrix, i::Int, j::Int; alg = DiscretizeUniformWidth(:scott))
+    idxs = findnz(p)[1]
+    binedges_i, binids_i = discretization(X[idxs, i]; alg = alg)
+    binedges_j, binids_j = discretization(X[idxs, j]; alg = alg)
+    discretized_joint_distribution_undir(p[idxs],
+                                        binids_i, binids_j,
+                                        binedges_i, binedges_j)
+end
+
+function discretized_joint_distribution(prod::AbstractSparseMatrix, 
+                                        binids_i_prev::Vector{Int}, binids_j_next::Vector{Int}, binids_j_prev::Vector{Int}, 
+                                        binedges_i_prev::AbstractVector, binedges_j_next::AbstractVector, binedges_j_prev::AbstractVector)
+    # computes the discrete joint distribution of 
+    # (X[i], X_next[j], X[j])
+    π_genes = zeros(length(binedges_i_prev)-1, length(binedges_j_next)-1, length(binedges_j_prev)-1) # this should be relatively small...
+    for (m, n, p) in zip(findnz(prod)...)
+            π_genes[binids_i_prev[m], binids_j_next[n], binids_j_prev[m]] += p
+    end
+    return π_genes
+end
+
+function discretized_joint_distribution_undir(p::AbstractSparseVector,
+                                             binids_i::Vector{Int}, binids_j::Vector{Int},
+                                             binedges_i::AbstractVector, binedges_j::AbstractVector)
+    # compute the discrete joint distribution of (X[i], X[j])
+    π_genes = zeros(length(binedges_i)-1, length(binedges_j)-1) # this should be relatively small...
+    for (m, q) in zip(findnz(p)...)
+            π_genes[binids_i[m], binids_j[m]] += q
+    end
+    return π_genes
+end
+
+function discretized_joint_distribution_undir(prod::AbstractSparseMatrix,
+                                             binids_i::Vector{Int}, binids_j::Vector{Int},
+                                             binedges_i::AbstractVector, binedges_j::AbstractVector)
+    # compute the discrete joint distribution of (X[i], X[j])
+    π_genes = zeros(length(binedges_i)-1, length(binedges_j)-1) # this should be relatively small...
+    for (m, n, p) in zip(findnz(prod)...)
+            π_genes[binids_i[m], binids_j[n]] += p
+    end
+    return π_genes
+end
+
+" 0 1 (fontified t face font-lock-comment-delimiter-face) 1 3 (fontified t face font-lock-comment-face) 3 556 (fontified t face font-lock-comment-face) 556 558 (fontified t) 558 566 (fontified t face font-lock-keyword-face) 566 567 (fontified t) 567 597 (fontified t face font-lock-function-name-face) 597 604 (fontified t) 604 624 (fontified t face font-lock-type-face) 624 630 (fontified t) 630 644 (fontified t face font-lock-type-face) 644 650 (fontified t) 650 651 (fontified t face font-lock-type-face) 651 664 (fontified t face font-lock-type-face) 664 669 (fontified t) 669 672 (fontified t face font-lock-type-face) 672 677 (fontified t) 677 680 (fontified t face font-lock-type-face) 680 711 (fontified t) 711 717 (fontified t face julia-quoted-symbol-face) 717 720 (fontified t) 720 826 (fontified t) 826 873 (fontified t) 873 874 (fontified t) 874 892 (fontified t) 892 955 (fontified t) 955 972 (fontified t) 972 1288 (fontified t) 1288 1291 (fontified t face font-lock-keyword-face) 1291 1293 (fontified t) 1293 1301 (fontified t face font-lock-keyword-face) 1301 1302 (fontified t) 1302 1338 (fontified t face font-lock-function-name-face) 1338 1345 (fontified t) 1345 1365 (fontified t face font-lock-type-face) 1365 1370 (fontified t) 1370 1384 (fontified t face font-lock-type-face) 1384 1389 (fontified t) 1389 1392 (fontified t face font-lock-type-face) 1392 1397 (fontified t) 1397 1400 (fontified t face font-lock-type-face) 1400 1431 (fontified t) 1431 1437 (fontified t face julia-quoted-symbol-face) 1437 1503 (fontified t) 1503 1532 (fontified t) 1532 1867 (fontified t) 1867 1870 (fontified t face font-lock-keyword-face) 1870 1872 (fontified t) 1872 1880 (fontified t face font-lock-keyword-face) 1880 1881 (fontified t) 1881 1917 (fontified t face font-lock-function-name-face) 1917 1921 (fontified t) 1921 1941 (fontified t face font-lock-type-face) 1941 1946 (fontified t) 1946 1960 (fontified t face font-lock-type-face) 1960 1965 (fontified t) 1965 1968 (fontified t face font-lock-type-face) 1968 1973 (fontified t) 1973 1976 (fontified t face font-lock-type-face) 1976 2007 (fontified t) 2007 2013 (fontified t face julia-quoted-symbol-face) 2013 2220 (fontified t) 2220 2344 (fontified t) 2344 2347 (fontified t face font-lock-keyword-face) 2347 2348 (fontified t) 2348 2349 (fontified t) 2349 2357 (fontified t face font-lock-keyword-face) 2357 2358 (fontified t) 2358 2388 (fontified t face font-lock-function-name-face) 2388 2392 (fontified t) 2392 2395 (fontified t) 2395 2415 (fontified t face font-lock-type-face) 2415 2418 (fontified t) 2418 2472 (fontified t) 2472 2473 (fontified t) 2473 2479 (fontified t face font-lock-type-face) 2479 2501 (fontified t) 2501 2507 (fontified t face font-lock-type-face) 2507 2529 (fontified t) 2529 2535 (fontified t face font-lock-type-face) 2535 2543 (fontified t) 2543 2600 (fontified t) 2600 2614 (fontified t face font-lock-type-face) 2614 2633 (fontified t) 2633 2647 (fontified t face font-lock-type-face) 2647 2666 (fontified t) 2666 2680 (fontified t face font-lock-type-face) 2680 2686 (fontified t) 2686 2688 (fontified t face font-lock-comment-delimiter-face) 2688 2733 (fontified t face font-lock-comment-face) 2733 2737 (fontified t) 2737 2739 (fontified t face font-lock-comment-delimiter-face) 2739 2763 (fontified t face font-lock-comment-face) 2763 2864 (fontified t) 2864 2866 (fontified t face font-lock-comment-delimiter-face) 2866 2901 (fontified t face font-lock-comment-face) 2901 2905 (fontified t) 2905 2908 (fontified t face font-lock-keyword-face) 2908 2919 (fontified t) 2919 2921 (fontified t face font-lock-keyword-face) 2921 3026 (fontified t) 3026 3029 (fontified t face font-lock-keyword-face) 3029 3032 (fontified t) 3032 3034 (fontified t) 3034 3040 (face font-lock-keyword-face fontified t) 3040 3049 (fontified t) 3049 3052 (fontified t face font-lock-keyword-face) 3052 3054 (fontified t) 3054 3062 (fontified t face font-lock-keyword-face) 3062 3063 (fontified t) 3063 3099 (fontified t face font-lock-function-name-face) 3099 3103 (fontified t) 3103 3123 (fontified t face font-lock-type-face) 3123 3180 (fontified t) 3180 3186 (fontified t face font-lock-type-face) 3186 3203 (fontified t) 3203 3209 (fontified t face font-lock-type-face) 3209 3273 (fontified t) 3273 3287 (fontified t face font-lock-type-face) 3287 3301 (fontified t) 3301 3315 (fontified t face font-lock-type-face) 3315 3321 (fontified t) 3321 3323 (fontified t face font-lock-comment-delimiter-face) 3323 3379 (fontified t face font-lock-comment-face) 3379 3443 (fontified t) 3443 3445 (fontified t face font-lock-comment-delimiter-face) 3445 3480 (fontified t face font-lock-comment-face) 3480 3484 (fontified t) 3484 3487 (fontified t face font-lock-keyword-face) 3487 3495 (fontified t) 3495 3497 (fontified t face font-lock-keyword-face) 3497 3571 (fontified t) 3571 3574 (fontified t face font-lock-keyword-face) 3574 3579 (fontified t) 3579 3585 (fontified t face font-lock-keyword-face) 3585 3594 (fontified t) 3594 3597 (fontified t face font-lock-keyword-face) 3597 3599 (fontified t) 3599 3607 (fontified t face font-lock-keyword-face) 3607 3608 (fontified t) 3608 3644 (fontified t face font-lock-function-name-face) 3644 3651 (fontified t) 3651 3671 (fontified t face font-lock-type-face) 3671 3728 (fontified t) 3728 3734 (fontified t face font-lock-type-face) 3734 3751 (fontified t) 3751 3757 (fontified t face font-lock-type-face) 3757 3821 (fontified t) 3821 3835 (fontified t face font-lock-type-face) 3835 3848 (fontified t) 3848 3849 (fontified t) 3849 3863 (fontified t face font-lock-type-face) 3863 3865 (fontified t) 3865 3869 (fontified t) 3869 3871 (fontified t face font-lock-comment-delimiter-face) 3871 3918 (fontified t face font-lock-comment-face) 3918 3927 (fontified t face font-lock-comment-face) 3927 3991 (fontified t) 3991 3993 (fontified t face font-lock-comment-delimiter-face) 3993 4028 (fontified t face font-lock-comment-face) 4028 4032 (fontified t) 4032 4035 (fontified t face font-lock-keyword-face) 4035 4043 (fontified t) 4043 4046 (fontified t) 4046 4048 (fontified t face font-lock-keyword-face) 4048 4070 (fontified t) 4070 4125 (fontified t) 4125 4128 (fontified t face font-lock-keyword-face) 4128 4133 (fontified t) 4133 4139 (fontified t face font-lock-keyword-face) 4139 4148 (fontified t) 4148 4151 (fontified t face font-lock-keyword-face) 4151 4153 (fontified t)) . 1) (undo-tree-id3 . -4152) (undo-tree-id4 . -4152) (undo-tree-id5 . -4152) (undo-tree-id6 . -4152) (undo-tree-id7 . -557) (undo-tree-id8 . -1292) (undo-tree-id9 . -1871) (undo-tree-id10 . -2348) (undo-tree-id11 . -3053) (undo-tree-id12 . -3598) 4153) nil (25315 34905 652813 889000) 0 nil])
+([nil nil ((#("
+" 0 1 (fontified t)) . 1)) nil (25315 34905 652804 670000) 0 nil])
+([nil nil ((#("cartesian_to_index(i, j; N) = N*(j-1)+i
+" 0 18 (fontified t face font-lock-function-name-face) 18 40 (fontified t)) . 3047)) nil (25315 34905 652802 784000) 0 nil])
+([nil nil ((#("prox_l1(x; λ = 1.0) = sign(x)*relu(abs(x) - λ)
+" 0 7 (fontified t face font-lock-function-name-face) 7 47 (fontified t)) . 4721) (undo-tree-id1 . -47) (undo-tree-id2 . -47)) nil (25315 34905 652799 991000) 0 nil])
+([nil nil ((#("
+" 0 1 (fontified t)) . 4721) (undo-tree-id0 . -1)) nil (25315 34905 652795 311000) 0 nil])
+([nil nil ((7949 . 7950)) nil (25315 34905 652771 356000) 0 nil])
+([nil nil ((#("
+function fitsp(G::AbstractMatrix, L::AbstractMatrix, α; ρ = 0.05, λ1 = 25.0, λ2 = 0.075, maxiter = 2500)
+    # scaling factors
+    L_scaled = L # sqrt.(α) * L * sqrt.(α)
+    X = G;
+    Z = G;
+    W = zero(G);
+    ΔX, ΔZ, ΔW = 0, 0, 0
+    @showprogress for iter = 1:maxiter
+        # X_new = ((1+ρ)I + λ1*L) \\ (G - ρ*(W-Z));
+        X_new = (α + λ1*L_scaled + ρ*I) \\ (α*G + ρ*(Z-W)); 
+        # Z_new = prox_l1.(X_new+W; λ = λ2/ρ);
+        Z_new = hcat([prox_l1.(X_new[i, :]+W[i, :]; λ = λ2*diag(α)[i]/ρ) for i = 1:size(L, 1)]...)';
+        W_new = W + X_new - Z_new
+        ΔX, ΔZ, ΔW = norm(X-X_new, Inf), norm(Z-Z_new, Inf), norm(W-W_new, Inf)
+        X = X_new; Z = Z_new; W = W_new
+    end
+    @info \"ΔX = $(ΔX), ΔZ = $(ΔZ), ΔW = $(ΔW)\"
+    @info \"tr(X'LX) = $(tr(X'*L_scaled*X)), 0.5|X-G|^2 = $(0.5*norm(X-G)), |X|1 = $(norm(X, 1))\"
+    Z
+end
+
+function fitsp(G::AbstractMatrix, L::AbstractMatrix; ρ = 0.05, λ1 = 25.0, λ2 = 0.075, maxiter = 2500)
+    # scaling factors
+    X = G;
+    Z = G;
+    W = zero(G);
+    ΔX, ΔZ, ΔW = 0, 0, 0
+    @showprogress for iter = 1:maxiter
+        X_new = ((1+ρ)I + λ1*L) \\ (G - ρ*(W-Z));
+        Z_new = prox_l1.(X_new+W; λ = λ2/ρ);
+        W_new = W + X_new - Z_new
+        ΔX, ΔZ, ΔW = norm(X-X_new, Inf), norm(Z-Z_new, Inf), norm(W-W_new, Inf)
+        X = X_new; Z = Z_new; W = W_new
+    end
+    @info \"ΔX = $(ΔX), ΔZ = $(ΔZ), ΔW = $(ΔW)\"
+    @info \"tr(X'LX) = $(tr(X'*L*X)), 0.5|X-G|^2 = $(0.5*norm(X-G)), |X|1 = $(norm(X, 1))\"
+    Z
+end
+
+
+function fitsp_mean(G; ρ = 0.01, λ = 0.001, maxiter = 100)
+    x = zeros(size(G, 1))
+    z = zeros(size(G, 1))
+    w = zeros(size(G, 1))
+    Δx, Δz, Δw = 0, 0, 0
+    @showprogress for iter = 1:maxiter
+        x_new =  (mean(G; dims = 2) + ρ*(z-w))/(1+ρ)
+        z_new = prox_l1.(x_new + w; λ = λ/ρ)
+        w_new = w + x_new - z_new
+        Δx, Δz, Δw = norm(x-x_new, Inf), norm(z-z_new, Inf), norm(w-w_new, Inf)
+        x = x_new; z = z_new; w = w_new
+    end
+    @info \"Δx = $(Δx), Δz = $(Δz), Δw = $(Δw)\"
+    x
+end
+
+" 0 1 (fontified t) 1 9 (fontified t face font-lock-keyword-face) 9 10 (fontified t) 10 15 (fontified t face font-lock-function-name-face) 15 19 (fontified t) 19 23 (fontified t face font-lock-type-face) 23 33 (fontified t face font-lock-type-face) 33 38 (fontified t) 38 52 (fontified t face font-lock-type-face) 52 106 (fontified t) 106 110 (fontified t) 110 112 (fontified t face font-lock-comment-delimiter-face) 112 128 (fontified t face font-lock-comment-face) 128 145 (fontified t) 145 147 (fontified t face font-lock-comment-delimiter-face) 147 171 (fontified t face font-lock-comment-face) 171 175 (fontified t) 175 182 (fontified t) 182 239 (fontified t) 239 252 (fontified t face julia-macro-face) 252 253 (fontified t) 253 256 (fontified t face font-lock-keyword-face) 256 262 (fontified t) 262 263 (fontified t face font-lock-keyword-face) 263 282 (fontified t) 282 284 (fontified t face font-lock-comment-delimiter-face) 284 308 (fontified t face font-lock-comment-face) 308 309 (syntax-table (1) fontified t face font-lock-comment-face) 309 325 (fontified t face font-lock-comment-face) 325 365 (fontified t) 365 366 (syntax-table (1) fontified t) 366 393 (fontified t) 393 395 (fontified t face font-lock-comment-delimiter-face) 395 432 (fontified t face font-lock-comment-face) 432 505 (fontified t) 505 508 (fontified t face font-lock-keyword-face) 508 511 (fontified t) 511 512 (fontified t face font-lock-keyword-face) 512 602 (fontified t) 602 605 (fontified t face font-lock-constant-face) 605 622 (fontified t) 622 625 (fontified t face font-lock-constant-face) 625 642 (fontified t) 642 645 (fontified t face font-lock-constant-face) 645 691 (fontified t) 691 694 (fontified t face font-lock-keyword-face) 694 699 (fontified t) 699 704 (fontified t face julia-macro-face) 704 705 (fontified t) 705 741 (fontified t face font-lock-string-face) 741 746 (fontified t) 746 751 (fontified t face julia-macro-face) 751 752 (fontified t) 752 838 (fontified t face font-lock-string-face) 838 845 (fontified t) 845 848 (fontified t face font-lock-keyword-face) 848 850 (fontified t) 850 858 (fontified t face font-lock-keyword-face) 858 859 (fontified t) 859 864 (fontified t face font-lock-function-name-face) 864 868 (fontified t) 868 882 (fontified t face font-lock-type-face) 882 887 (fontified t) 887 901 (fontified t face font-lock-type-face) 901 956 (fontified t) 956 958 (fontified t face font-lock-comment-delimiter-face) 958 974 (fontified t face font-lock-comment-face) 974 1042 (fontified t) 1042 1055 (fontified t face julia-macro-face) 1055 1056 (fontified t) 1056 1059 (fontified t face font-lock-keyword-face) 1059 1065 (fontified t) 1065 1066 (fontified t face font-lock-keyword-face) 1066 1109 (fontified t) 1109 1110 (syntax-table (1) fontified t) 1110 1212 (fontified t) 1212 1240 (fontified t) 1240 1243 (fontified t face font-lock-constant-face) 1243 1260 (fontified t) 1260 1263 (fontified t face font-lock-constant-face) 1263 1280 (fontified t) 1280 1283 (fontified t face font-lock-constant-face) 1283 1285 (fontified t) 1285 1329 (fontified t) 1329 1332 (fontified t face font-lock-keyword-face) 1332 1337 (fontified t) 1337 1342 (fontified t face julia-macro-face) 1342 1343 (fontified t) 1343 1379 (fontified t face font-lock-string-face) 1379 1384 (fontified t) 1384 1389 (fontified t face julia-macro-face) 1389 1390 (fontified t) 1390 1414 (fontified t face font-lock-string-face) 1414 1452 (fontified t face font-lock-string-face) 1452 1469 (fontified t face font-lock-string-face) 1469 1470 (fontified t) 1470 1476 (fontified t) 1476 1479 (fontified t face font-lock-keyword-face) 1479 1480 (fontified t) 1480 1482 (fontified t) 1482 1490 (fontified t face font-lock-keyword-face) 1490 1491 (fontified t) 1491 1501 (fontified t face font-lock-function-name-face) 1501 1541 (fontified t) 1541 1606 (fontified t) 1606 1619 (fontified t) 1619 1648 (fontified t) 1648 1661 (fontified t face julia-macro-face) 1661 1662 (fontified t) 1662 1665 (fontified t face font-lock-keyword-face) 1665 1671 (fontified t) 1671 1672 (fontified t face font-lock-keyword-face) 1672 1850 (fontified t) 1850 1853 (fontified t face font-lock-constant-face) 1853 1870 (fontified t) 1870 1873 (fontified t face font-lock-constant-face) 1873 1890 (fontified t) 1890 1893 (fontified t face font-lock-constant-face) 1893 1932 (fontified t) 1932 1935 (fontified t) 1935 1939 (fontified t) 1939 1942 (fontified t face font-lock-keyword-face) 1942 1947 (fontified t) 1947 1952 (fontified t face julia-macro-face) 1952 1953 (fontified t) 1953 1989 (fontified t face font-lock-string-face) 1989 1996 (fontified t) 1996 1999 (fontified t face font-lock-keyword-face) 1999 2001 (fontified t)) . 4720) (undo-tree-id27 . -2000) (undo-tree-id28 . -2000) (undo-tree-id29 . -1) (undo-tree-id30 . -1) (undo-tree-id31 . -1) (undo-tree-id32 . -849) (undo-tree-id33 . -1) (undo-tree-id34 . -849) (undo-tree-id35 . -1480) (undo-tree-id36 . -2000) (undo-tree-id37 . -2000) (undo-tree-id38 . -849) (undo-tree-id39 . -849) (undo-tree-id40 . -2000) (undo-tree-id41 . -849) (undo-tree-id42 . -849) (undo-tree-id43 . -1480) (undo-tree-id44 . -1480) (undo-tree-id45 . -849) (undo-tree-id46 . -2000) (undo-tree-id47 . -849) (undo-tree-id48 . -1480) (undo-tree-id49 . -2000) 6720 (t 25315 34905 671650 573000)) nil (25315 35000 258937 245000) 0 nil])
+([nil nil ((4720 . 4721)) nil (25315 35000 258905 746000) 0 nil])
+([nil nil ((#("
+function CLR(x)
+    [0.5*sqrt.(relu(zscore(x[i, :])[j]).^2 + relu(zscore(x[:, j])[i]).^2) for i = 1:size(x, 1), j = 1:size(x, 2)]
+end
+" 0 1 (fontified t) 1 9 (face font-lock-keyword-face fontified t) 9 10 (fontified t) 10 13 (face font-lock-function-name-face fontified t) 13 91 (fontified t) 91 94 (face font-lock-keyword-face fontified t) 94 97 (fontified t) 97 98 (face font-lock-keyword-face fontified t) 98 131 (fontified t) 131 134 (face font-lock-keyword-face fontified t) 134 135 (fontified t)) . 4855) (undo-tree-id0 . -131) (undo-tree-id1 . -1) (undo-tree-id2 . -135) (undo-tree-id3 . -135) (undo-tree-id4 . -135) (undo-tree-id5 . -135) (undo-tree-id6 . -135) (undo-tree-id7 . -135) (undo-tree-id8 . -135) (undo-tree-id9 . -135) (undo-tree-id10 . -135) (undo-tree-id11 . -135) (undo-tree-id12 . -135) (undo-tree-id13 . -135) (undo-tree-id14 . -135) (undo-tree-id15 . -135) (undo-tree-id16 . -135) (undo-tree-id17 . -135) (undo-tree-id18 . -135) (undo-tree-id19 . -135) (undo-tree-id20 . -135) (undo-tree-id21 . -135) (undo-tree-id22 . -135) (undo-tree-id23 . -135) (undo-tree-id24 . -135) (undo-tree-id25 . -135) (undo-tree-id26 . -135) (undo-tree-id27 . -135) (undo-tree-id28 . -135) (undo-tree-id29 . -135) (undo-tree-id30 . -135) (undo-tree-id31 . -135) (undo-tree-id32 . -135) (undo-tree-id33 . -135) (undo-tree-id34 . -135) (undo-tree-id35 . -135) (undo-tree-id36 . -135) (undo-tree-id37 . -135) (undo-tree-id38 . -135) (undo-tree-id39 . -135) (undo-tree-id40 . -135) (undo-tree-id41 . -135) (undo-tree-id42 . -135) (undo-tree-id43 . -135) (undo-tree-id44 . -135) (undo-tree-id45 . -135) (undo-tree-id46 . -135) (undo-tree-id47 . -135) (undo-tree-id48 . -135) (undo-tree-id49 . -135) (undo-tree-id50 . -135) (undo-tree-id51 . -135) (undo-tree-id52 . -135) (undo-tree-id53 . -135) (undo-tree-id54 . -135) (undo-tree-id55 . -135) (undo-tree-id56 . -135) (undo-tree-id57 . -135) (undo-tree-id58 . -135) (undo-tree-id59 . -135) (undo-tree-id60 . -135) (undo-tree-id61 . -135) (undo-tree-id62 . -135) (undo-tree-id63 . -135) (undo-tree-id64 . -135) (undo-tree-id65 . -135) (undo-tree-id66 . -135) (undo-tree-id67 . -135) (undo-tree-id68 . -135) (undo-tree-id69 . -135) (undo-tree-id70 . -135) (undo-tree-id71 . -135) (undo-tree-id72 . -135) (undo-tree-id73 . -135) (undo-tree-id74 . -135) (undo-tree-id75 . -135) (undo-tree-id76 . -135) (undo-tree-id77 . -135) (undo-tree-id78 . -135) (undo-tree-id79 . -135) (undo-tree-id80 . -135) (undo-tree-id81 . -135) (undo-tree-id82 . -135) (undo-tree-id83 . -135) (undo-tree-id84 . -135) (undo-tree-id85 . -135) (undo-tree-id86 . -135) (undo-tree-id87 . -135) (undo-tree-id88 . -135) (undo-tree-id89 . -135) (undo-tree-id90 . -131) (undo-tree-id91 . -131) (undo-tree-id92 . -131) (undo-tree-id93 . -131) (undo-tree-id94 . -131) (undo-tree-id95 . -131) (undo-tree-id96 . -131) (undo-tree-id97 . -131) (undo-tree-id98 . -131) (undo-tree-id99 . -131) (undo-tree-id100 . -131) (undo-tree-id101 . -131) (undo-tree-id102 . -131) (undo-tree-id103 . -131) (undo-tree-id104 . -131) (undo-tree-id105 . -131) (undo-tree-id106 . -131) (undo-tree-id107 . -131) (undo-tree-id108 . -131) (undo-tree-id109 . -131) (undo-tree-id110 . -131) (undo-tree-id111 . -131) (undo-tree-id112 . -131) (undo-tree-id113 . -131) (undo-tree-id114 . -131) (undo-tree-id115 . -131) (undo-tree-id116 . -135) (undo-tree-id117 . -131) (undo-tree-id118 . -131) (undo-tree-id119 . -131) (undo-tree-id120 . -131) (undo-tree-id121 . -131) (undo-tree-id122 . -131) (undo-tree-id123 . -131) (undo-tree-id124 . -131) (undo-tree-id125 . -131) (undo-tree-id126 . -131) (undo-tree-id127 . -131) (undo-tree-id128 . -131) (undo-tree-id129 . -131) (undo-tree-id130 . -131) (undo-tree-id131 . -131) (undo-tree-id132 . -131) (undo-tree-id133 . -131) (undo-tree-id134 . -131) (undo-tree-id135 . -131) (undo-tree-id136 . -131) (undo-tree-id137 . -131) (undo-tree-id138 . -131) (undo-tree-id139 . -131) (undo-tree-id140 . -131) (undo-tree-id141 . -131) (undo-tree-id142 . -131) (undo-tree-id143 . -131) (t 25315 35000 267798 148000)) nil (25315 35423 466377 874000) 0 nil])
+([nil nil ((1687 . 1689) (1682 . 1687) (t 25315 35423 475475 819000)) nil (25315 36527 986006 604000) 0 nil])
+([nil nil ((#("    @\"
+" 0 5 (fontified t) 5 7 (fontified t face font-lock-string-face)) . 1683) (undo-tree-id1 . -5) (undo-tree-id2 . -7) (undo-tree-id3 . -7) (undo-tree-id4 . -5) (undo-tree-id5 . -5) (undo-tree-id6 . -5) (undo-tree-id7 . 1) (undo-tree-id8 . -5) (undo-tree-id9 . -5) 1688) nil (25315 36527 986002 832000) 0 nil])
+([nil nil ((1687 . 1697) (#("\"" 0 1 (fontified t face font-lock-string-face)) . -1687) (undo-tree-id0 . -1) 1688 (1687 . 1688) (1682 . 1687)) nil (25315 36527 985989 213000) 0 nil])
+([nil nil ((#("    @info \"hi\"
+" 0 4 (fontified t) 4 9 (fontified t face julia-macro-face) 9 10 (fontified t) 10 14 (fontified t face font-lock-string-face) 14 15 (fontified t)) . 1683) (undo-tree-id10 . -13) (undo-tree-id11 . -13) (undo-tree-id12 . -13) (undo-tree-id13 . 1) (undo-tree-id14 . -13) (undo-tree-id15 . -15) (undo-tree-id16 . -15) (undo-tree-id17 . -13) (undo-tree-id18 . -13) (undo-tree-id19 . -13) (undo-tree-id20 . -13) (undo-tree-id21 . -13) (undo-tree-id22 . -13) (undo-tree-id23 . -13) (undo-tree-id24 . -13) (undo-tree-id25 . -13) (undo-tree-id26 . -13) (undo-tree-id27 . -13) (undo-tree-id28 . -13) (undo-tree-id29 . -13) (undo-tree-id30 . -13) (undo-tree-id31 . -13) (undo-tree-id32 . -13) (undo-tree-id33 . -13) (undo-tree-id34 . -13) (undo-tree-id35 . -13) (undo-tree-id36 . -13) (undo-tree-id37 . -13) (undo-tree-id38 . -13) (undo-tree-id39 . -13) (undo-tree-id40 . -13) (undo-tree-id41 . -13) (undo-tree-id42 . -15) (undo-tree-id43 . -13) (undo-tree-id44 . -13) (undo-tree-id45 . -13) (undo-tree-id46 . -13) (undo-tree-id47 . -13) (undo-tree-id48 . -13) (undo-tree-id49 . -13) (undo-tree-id50 . -13) (undo-tree-id51 . -13) (undo-tree-id52 . -13) (undo-tree-id53 . -13) (undo-tree-id54 . -13) (undo-tree-id55 . -13) (undo-tree-id56 . -13) (undo-tree-id57 . -13) (undo-tree-id58 . -13) (undo-tree-id59 . -13) (undo-tree-id60 . -13) (undo-tree-id61 . -13) (undo-tree-id62 . -13) (undo-tree-id63 . -13) (undo-tree-id64 . -13) (undo-tree-id65 . -13) (undo-tree-id66 . -13) (undo-tree-id67 . -13) (undo-tree-id68 . -13) (undo-tree-id69 . -13) (undo-tree-id70 . -13) 1696 (t 25315 36527 996081 489000)) nil (25315 36865 386857 588000) 0 nil])
+([nil nil ((5732 . 5735) (t 25315 36865 394230 34000)) nil (25315 37671 929462 341000) 0 nil])
+([nil nil ((#("X" 0 1 (fontified t)) . -5732) (undo-tree-id268 . -1) (undo-tree-id269 . -1) (#("," 0 1 (fontified t)) . -5733) (undo-tree-id270 . -1) (undo-tree-id271 . -1) (#(" " 0 1 (fontified t)) . -5734) (undo-tree-id272 . 1) (undo-tree-id273 . -1) 5735 (t 25315 37671 936470 844000)) nil (25315 37686 365479 394000) 0 nil])
+([nil nil ((5733 . 5742)) nil (25315 37686 365462 353000) 0 nil])
+([nil nil ((#("size(X, 2)" 0 10 (fontified t)) . 5780) (undo-tree-id182 . -9) (undo-tree-id183 . -9) (undo-tree-id184 . -9) (undo-tree-id185 . -10) (undo-tree-id186 . -9) (undo-tree-id187 . -3) (undo-tree-id188 . -3) (undo-tree-id189 . -3) (undo-tree-id190 . -3) (undo-tree-id191 . -3) (undo-tree-id192 . -3) (undo-tree-id193 . -3) (undo-tree-id194 . -3) (undo-tree-id195 . -3) (undo-tree-id196 . -3) (undo-tree-id197 . -3) (undo-tree-id198 . -3) (undo-tree-id199 . -3) (undo-tree-id200 . -3) (undo-tree-id201 . -3) (undo-tree-id202 . -3) (undo-tree-id203 . -3) (undo-tree-id204 . -3) (undo-tree-id205 . -3) (undo-tree-id206 . -3) (undo-tree-id207 . -3) (undo-tree-id208 . -3) (undo-tree-id209 . -3) (undo-tree-id210 . -3) (undo-tree-id211 . -3) (undo-tree-id212 . -4) (undo-tree-id213 . -4) (undo-tree-id214 . -4) (undo-tree-id215 . -4) (undo-tree-id216 . -4) (undo-tree-id217 . -4) (undo-tree-id218 . -4) (undo-tree-id219 . -4) (undo-tree-id220 . -4) (undo-tree-id221 . -4) (undo-tree-id222 . -4) (undo-tree-id223 . -4) (undo-tree-id224 . -4) (undo-tree-id225 . -4) (undo-tree-id226 . -4) (undo-tree-id227 . -4) (undo-tree-id228 . -4) (undo-tree-id229 . -4) (undo-tree-id230 . -4) (undo-tree-id231 . -4) (undo-tree-id232 . -4) (undo-tree-id233 . -4) (undo-tree-id234 . -4) (undo-tree-id235 . -4) (undo-tree-id236 . -4) (undo-tree-id237 . 1) (undo-tree-id238 . -10) (undo-tree-id239 . 6) (undo-tree-id240 . -5) (undo-tree-id241 . -4) (undo-tree-id242 . -9) (undo-tree-id243 . -9) (undo-tree-id244 . -9) (undo-tree-id245 . -9) (undo-tree-id246 . -9) (undo-tree-id247 . -9) (undo-tree-id248 . -9) (undo-tree-id249 . -9) (undo-tree-id250 . -9) (undo-tree-id251 . -9) (undo-tree-id252 . -9) (undo-tree-id253 . -9) (undo-tree-id254 . -9) (undo-tree-id255 . -9) (undo-tree-id256 . -9) (undo-tree-id257 . -9) (undo-tree-id258 . -9) (undo-tree-id259 . -9) (undo-tree-id260 . -9) (undo-tree-id261 . -9) (undo-tree-id262 . -9) (undo-tree-id263 . -9) (undo-tree-id264 . -9) (undo-tree-id265 . -9) (undo-tree-id266 . -9) (undo-tree-id267 . -9) 5789) nil (25315 37686 365456 276000) 0 nil])
+([nil nil ((5780 . 5787)) nil (25315 37686 365389 19000) 0 nil])
+([nil nil ((#("size(X, 2)" 0 10 (fontified t)) . 5789) (undo-tree-id71 . -9) (undo-tree-id72 . -9) (undo-tree-id73 . -9) (undo-tree-id74 . -1) (undo-tree-id75 . -1) (undo-tree-id76 . -1) (undo-tree-id77 . -1) (undo-tree-id78 . -1) (undo-tree-id79 . -1) (undo-tree-id80 . -1) (undo-tree-id81 . -1) (undo-tree-id82 . -1) (undo-tree-id83 . -1) (undo-tree-id84 . -1) (undo-tree-id85 . -1) (undo-tree-id86 . -1) (undo-tree-id87 . -1) (undo-tree-id88 . -1) (undo-tree-id89 . -1) (undo-tree-id90 . -1) (undo-tree-id91 . -1) (undo-tree-id92 . -1) (undo-tree-id93 . -1) (undo-tree-id94 . -1) (undo-tree-id95 . -1) (undo-tree-id96 . -1) (undo-tree-id97 . -1) (undo-tree-id98 . -1) (undo-tree-id99 . -10) (undo-tree-id100 . -9) (undo-tree-id101 . -3) (undo-tree-id102 . -3) (undo-tree-id103 . -3) (undo-tree-id104 . -3) (undo-tree-id105 . -3) (undo-tree-id106 . -3) (undo-tree-id107 . -3) (undo-tree-id108 . -3) (undo-tree-id109 . -3) (undo-tree-id110 . -3) (undo-tree-id111 . -3) (undo-tree-id112 . -3) (undo-tree-id113 . -3) (undo-tree-id114 . -3) (undo-tree-id115 . -3) (undo-tree-id116 . -3) (undo-tree-id117 . -3) (undo-tree-id118 . -3) (undo-tree-id119 . -3) (undo-tree-id120 . -3) (undo-tree-id121 . -3) (undo-tree-id122 . -3) (undo-tree-id123 . -3) (undo-tree-id124 . -3) (undo-tree-id125 . -3) (undo-tree-id126 . -4) (undo-tree-id127 . -4) (undo-tree-id128 . -4) (undo-tree-id129 . -4) (undo-tree-id130 . -4) (undo-tree-id131 . -4) (undo-tree-id132 . -4) (undo-tree-id133 . -4) (undo-tree-id134 . -4) (undo-tree-id135 . -4) (undo-tree-id136 . -4) (undo-tree-id137 . -4) (undo-tree-id138 . -4) (undo-tree-id139 . -4) (undo-tree-id140 . -4) (undo-tree-id141 . -4) (undo-tree-id142 . -4) (undo-tree-id143 . -4) (undo-tree-id144 . -4) (undo-tree-id145 . -4) (undo-tree-id146 . -4) (undo-tree-id147 . -4) (undo-tree-id148 . -4) (undo-tree-id149 . -4) (undo-tree-id150 . -4) (undo-tree-id151 . 1) (undo-tree-id152 . -10) (undo-tree-id153 . 6) (undo-tree-id154 . -5) (undo-tree-id155 . -4) (undo-tree-id156 . -9) (undo-tree-id157 . -9) (undo-tree-id158 . -9) (undo-tree-id159 . -9) (undo-tree-id160 . -9) (undo-tree-id161 . -9) (undo-tree-id162 . -9) (undo-tree-id163 . -9) (undo-tree-id164 . -9) (undo-tree-id165 . -9) (undo-tree-id166 . -9) (undo-tree-id167 . -9) (undo-tree-id168 . -9) (undo-tree-id169 . -9) (undo-tree-id170 . -9) (undo-tree-id171 . -9) (undo-tree-id172 . -9) (undo-tree-id173 . -9) (undo-tree-id174 . -9) (undo-tree-id175 . -9) (undo-tree-id176 . -9) (undo-tree-id177 . -9) (undo-tree-id178 . -9) (undo-tree-id179 . -9) (undo-tree-id180 . -9) (undo-tree-id181 . -9) 5798) nil (25315 37686 365381 267000) 0 nil])
+([nil current ((5789 . 5796)) nil (25315 37686 365184 943000) 0 nil])
+nil

@@ -1,0 +1,17 @@
+name = "scNetworkInference"
+uuid = "d47a2e43-82e6-47ba-a340-eddb77145d33"
+authors = ["Stephen Zhang <syz@syz.id.au>"]
+version = "0.1.0"
+
+[deps]
+Discretizers = "6e83dbb3-75ca-525b-8ae2-3751f0dd50b4"
+InformationMeasures = "96684042-fbdc-5399-9b8e-d34e539a126c"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MultivariateStats = "6f286f6a-111f-5878-ab1e-185364afe411"
+NNlib = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
+NearestNeighbors = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
+ProgressBars = "49802e3a-d2f1-5c88-81d8-b72133a6f568"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
