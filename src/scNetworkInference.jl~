@@ -1,5 +1,0 @@
-module scNetworkInference
-
-greet() = print("Hello World!")
-
-end # module
