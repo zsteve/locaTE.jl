@@ -52,7 +52,7 @@ w ./= mean(w)
 @info "Applying CLR"
 mi_all_clr = apply_wclr(mi_all, size(X, 2))
 @info "Denoising"
-G = fitsp(mi_all_clr, L, Diagonal(w); λ1 = 5, λ2 = 0.005, maxiter = 250)
+G = fitsp(mi_all_clr, L, Diagonal(w); λ1 = 5, λ2 = 0.001, maxiter = 250)
 
 plt=plot(heatmap(mi_all[sortperm(dpt), :]; title = "MI"), 
     heatmap(mi_all_clr[sortperm(dpt), :]; title = "MI+CLR"), 
