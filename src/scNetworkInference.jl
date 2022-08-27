@@ -9,6 +9,7 @@ using ProgressMeter
 using MultivariateStats
 using NearestNeighbors
 using Discretizers
+using Distributions 
 using Plots: findnz
 
 include("inference.jl")

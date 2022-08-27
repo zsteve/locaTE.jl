@@ -10,6 +10,7 @@ using Plots
 using NearestNeighbors
 using Graphs
 using GraphSignals
+using LinearAlgebra
 
 X = npzread("data/X.npy")
 X_pca = npzread("data/X_pca.npy")
@@ -45,10 +46,13 @@ for i = 1:size(X, 1)
     mi_all[i, :] = get_MI(X, X, compute_coupling(X, i, P_sp, QT_sp, R_sp), gene_idxs[:, 1], gene_idxs[:, 2])
     next!(p)
 end
+
+w = vec(maximum(mi_all; dims = 2))
+w ./= mean(w)
 @info "Applying CLR"
-mi_all_clr = apply_clr(mi_all, size(X, 2))
+mi_all_clr = apply_wclr(mi_all, size(X, 2))
 @info "Denoising"
-G = fitsp(mi_all_clr, L; λ1 = 5, λ2 = 0.05, maxiter = 250)
+G = fitsp(mi_all_clr, L, Diagonal(w); λ1 = 5, λ2 = 0.001, maxiter = 250)
 
 plt=plot(heatmap(mi_all[sortperm(dpt), :]; title = "MI"), 
     heatmap(mi_all_clr[sortperm(dpt), :]; title = "MI+CLR"), 

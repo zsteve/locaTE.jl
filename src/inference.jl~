@@ -109,4 +109,5 @@ function compute_coupling(X::AbstractMatrix, i::Int, P::SparseMatrixCSC, QT::Spa
     QT * (sparse(reshape(pi, :, 1)) .* P)
 end
 
-apply_clr(A, n_genes) = hcat(map(x -> vec(wCLR(reshape(x, n_genes, n_genes))), eachrow(A))...)'
+apply_wclr(A, n_genes) = hcat(map(x -> vec(wCLR(reshape(x, n_genes, n_genes))), eachrow(A))...)'
+apply_clr(A, n_genes) = hcat(map(x -> vec(CLR(reshape(x, n_genes, n_genes))), eachrow(A))...)'

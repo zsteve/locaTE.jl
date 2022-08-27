@@ -12,20 +12,25 @@ using Graphs
 using GraphSignals
 using LinearAlgebra
 
-X = npzread("data/X.npy")
-X_pca = npzread("data/X_pca.npy")
-P = npzread("data/P.npy")
-C = npzread("data/C.npy")
-dpt = npzread("data/dpt.npy")
+DIR="/home/syz/sshfs/BoolODE/Synthetic/dyn-BF/dyn-BF-500-1"
+
+X = npzread("$DIR/X.npy")
+X_pca = npzread("$DIR/X_pca.npy")
+X_tsne = npzread("$DIR/X_umap.npy")
+# P = npzread("$DIR/P_velo_corr.npy")
+P = npzread("$DIR/P_statot.npy")
+C = npzread("$DIR/C.npy")
+dpt = npzread("$DIR/dpt.npy")
 
 R = quadreg(ones(size(X, 1)), ones(size(X, 1)), C, 2.5*median(C))
 
 gene_idxs = vcat([[j, i]' for i = 1:size(X, 2) for j = 1:size(X, 2)]...);
 
-P_sp = sparse(P)
+k = 3
+P_sp = sparse(P^k)
 π_unif = fill(1/size(P, 1), size(P, 1))'
 Q = (P' .* π_unif)./(π_unif * P)';
-QT_sp = sparse(Q')
+QT_sp = sparse((Q^k)')
 R_sp = sparse(R)
 
 # construct kNN and Laplacian
@@ -47,12 +52,16 @@ for i = 1:size(X, 1)
     next!(p)
 end
 
-w = vec(maximum(mi_all; dims = 2))
+w = vec(sum(mi_all; dims = 2))
 w ./= mean(w)
+
+scatter(X_tsne[:, 1], X_tsne[:, 2]; marker_z = w)
+
 @info "Applying CLR"
 mi_all_clr = apply_wclr(mi_all, size(X, 2))
 @info "Denoising"
-G = fitsp(mi_all_clr, L, Diagonal(w); λ1 = 5, λ2 = 0.001, maxiter = 250)
+
+G = fitsp(mi_all_clr, L; λ1 = 5, λ2 = 1e-3, maxiter = 250)
 
 plt=plot(heatmap(mi_all[sortperm(dpt), :]; title = "MI"), 
     heatmap(mi_all_clr[sortperm(dpt), :]; title = "MI+CLR"), 
@@ -72,10 +81,14 @@ end
 @info "Applying CLR"
 mi_all_clr = apply_clr(mi_all, size(X, 2))
 @info "Denoising"
-G = fitsp(mi_all_clr, L; λ1 = 5, λ2 = 0.05, maxiter = 250)
+G = fitsp(mi_all_clr, L; λ1 = 10, λ2 = 0.5, maxiter = 250)
 
 plt=plot(heatmap(mi_all[sortperm(dpt), :]; title = "MI"), 
     heatmap(mi_all_clr[sortperm(dpt), :]; title = "MI+CLR"), 
          heatmap(G[sortperm(dpt), :]; title = "denoised"), layout = (1, 3), size = (750, 250))
 savefig(plt, "scGRNs_undirected.png")
 
+
+###
+x = R[sortperm(dpt)[250], :]
+scatter(X_tsne[:, 1], X_tsne[:, 2]; marker_z = vec(x' * P_sp) - x, color = :bwr, clim = (-0.01, 0.01))
