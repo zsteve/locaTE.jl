@@ -34,7 +34,7 @@ C = npzread("C.npy");
 dpt = npzread("dpt.npy");
 
 # select genes
-id = 1:50 
+id = rand(1:100, 50)
 X = X[:, id]
 genes = genes[id];
 
@@ -61,7 +61,7 @@ for (i, j) in enumerate(idxs)
 end
 L = sparse(normalized_laplacian(max.(A, A'), Float64));
 
-coupling = compute_coupling(X, 1, P_sp, QT_sp, R_sp)
+coupling = dropzeros(compute_coupling(X, 1, P_sp, QT_sp, R_sp))
 using BenchmarkTools
 @benchmark get_MI($X, $X, $coupling, $(gene_idxs[:, 1]), $(gene_idxs[:, 2]))
 

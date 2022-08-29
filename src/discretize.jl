@@ -1,8 +1,12 @@
 function discretization(x::AbstractVector; alg = DiscretizeUniformWidth(:scott))
-    be = binedges(alg, x)
-    disc = LinearDiscretizer(be)
-    bi = encode(disc, x)
-    return be, bi
+    try
+        be = binedges(alg, x)
+        disc = LinearDiscretizer(be)
+        bi = encode(disc, x)
+        return be, bi
+    catch e
+        return [], zero.(x)
+    end
 end
 
 function discretizations_bulk(X::AbstractMatrix; alg = DiscretizeBayesianBlocks())
@@ -13,24 +17,10 @@ function discretizations_bulk(X::AbstractMatrix; alg = DiscretizeBayesianBlocks(
     return discretizers_all, binedges_all, binids_all
 end
 
-#=
-function discretized_joint_distribution(prod::AbstractMatrix, X::AbstractMatrix, i::Int, j::Int, binids_i::Vector{Int}, binids_j::Vector{Int}, binedges_i::AbstractVector, binedges_j::AbstractVector)
-    # computes the discrete joint distribution of 
-    # (X[i], X_next[j], X[j])
-    π_genes = zeros(length(binedges_i), length(binedges_j), length(binedges_j))
-    @inbounds for m = 1:size(X, 1)
-        @inbounds for n = 1:size(X, 1)
-            π_genes[binids_i[m], binids_j[n], binids_j[m]] += prod[m, n] 
-        end
-    end
-    return π_genes
-end
-=#
-
-function discretized_joint_distribution(prod::AbstractSparseMatrix, X0::AbstractMatrix, X1::AbstractMatrix, i::Int, j::Int, row_idxs, col_idxs, row_map, col_map; alg = DiscretizeUniformWidth(:scott))
-    binedges_i_prev, binids_i_prev = discretization(X0[row_idxs, i]; alg = alg)
-    binedges_j_next, binids_j_next = discretization(X1[col_idxs, j]; alg = alg)
-    binedges_j_prev, binids_j_prev = discretization(X0[row_idxs, j]; alg = alg)
+function discretized_joint_distribution(prod::AbstractSparseMatrix, X::AbstractMatrix, i::Int, j::Int, row_idxs, col_idxs, row_map, col_map, disc_prev, disc_next; alg = DiscretizeUniformWidth(:scott))
+    binedges_i_prev, binids_i_prev = disc_prev[i]
+    binedges_j_next, binids_j_next = disc_next[j] 
+    binedges_j_prev, binids_j_prev = disc_prev[j] 
     discretized_joint_distribution(prod, 
                                     binids_i_prev, binids_j_next, binids_j_prev,
                                     binedges_i_prev, binedges_j_next, binedges_j_prev,

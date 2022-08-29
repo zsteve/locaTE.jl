@@ -11,6 +11,7 @@ using NearestNeighbors
 using Discretizers
 using Distributions 
 using Plots: findnz
+using NMF 
 
 include("inference.jl")
 include("util.jl")
@@ -21,6 +22,8 @@ export get_MI_undir, get_MI
 export CLR, wCLR, apply_clr, apply_wclr
 export compute_coupling
 export fitsp
-export aupr, prec_rec_rate 
+export aupr, prec_rec_rate
+export auroc, tp_fp_rate
+export fitnmf
 
 end # module

@@ -18,35 +18,22 @@ function get_MI_undir(X::AbstractMatrix, prod::AbstractSparseMatrix, genes_i::Ve
     mi
 end
 
-#=
-function get_MI(X::AbstractMatrix, coupling_fw::AbstractSparseMatrix, coupling_rev::AbstractSparseMatrix, genes_prev::Vector{Int}, genes_next::Vector{Int}; rev = false)
-    @assert length(genes_prev) == length(genes_next)
-    mi_fwd = zeros(length(genes_prev))
-    mi_rev = zeros(length(genes_prev))
-    for j = 1:length(genes_prev)
-        mi_fwd[j] = get_conditional_mutual_information(discretized_joint_distribution(coupling_fw, X, X, genes_prev[j], genes_next[j]))
-        if rev
-            mi_rev[j] = get_conditional_mutual_information(discretized_joint_distribution(coupling_rev, X, X, genes_next[j], genes_prev[j]))
-        end
-    end
-    mi_fwd, mi_rev
-end
-=# 
-
-function get_MI(X0::AbstractMatrix, X1::AbstractMatrix, coupling::AbstractSparseMatrix, genes_prev::Vector{Int}, genes_next::Vector{Int}; kwargs...)
+function get_MI(X::AbstractMatrix, coupling::AbstractSparseMatrix, genes_prev::Vector{Int}, genes_next::Vector{Int}; kwargs...)
     @assert length(genes_prev) == length(genes_next)
     mi = zeros(length(genes_prev))
     # construct row and col indices/maps 
     row_idxs = findnz(sum(coupling; dims = 2))[1]
-    row_map = similar(row_idxs, Int64, size(X0, 1))
+    row_map = similar(row_idxs, Int64, size(X, 1))
     row_map[row_idxs] .= collect(1:length(row_idxs))
     col_idxs = findnz(sum(coupling; dims = 1))[2]
-    col_map = similar(col_idxs, Int64, size(X0, 1))
+    col_map = similar(col_idxs, Int64, size(X, 1))
     col_map[col_idxs] .= collect(1:length(col_idxs))
-    # 
+    # discretize each gene separately
+    disc_prev = [discretization(X[row_idxs, i]; kwargs...) for i = 1:size(X, 2)]
+    disc_next = [discretization(X[col_idxs, i]; kwargs...) for i = 1:size(X, 2)]
     for j = 1:length(genes_prev)
         try
-            mi[j] = get_conditional_mutual_information(discretized_joint_distribution(coupling, X0, X1, genes_prev[j], genes_next[j], row_idxs, col_idxs, row_map, col_map; kwargs...))
+            mi[j] = get_conditional_mutual_information(discretized_joint_distribution(coupling, X, genes_prev[j], genes_next[j], row_idxs, col_idxs, row_map, col_map, disc_prev, disc_next; kwargs...))
         catch e
             mi[j] = 0
         end
