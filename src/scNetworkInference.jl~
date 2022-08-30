@@ -11,6 +11,8 @@ using NearestNeighbors
 using Discretizers
 using Distributions 
 using Plots: findnz
+using NMF
+using TensorToolbox
 
 include("inference.jl")
 include("util.jl")
@@ -22,6 +24,7 @@ export CLR, wCLR, apply_clr, apply_wclr
 export compute_coupling
 export fitsp
 export aupr, prec_rec_rate
-export auroc, tp_fp_rate 
+export auroc, tp_fp_rate
+export fitnmf, fitntf
 
 end # module

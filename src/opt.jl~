@@ -41,17 +41,98 @@ end
 
 
 function fitsp_mean(G; ρ = 0.01, λ = 0.001, maxiter = 100)
-    x = zeros(size(G, 1))
-    z = zeros(size(G, 1))
-    w = zeros(size(G, 1))
+    x = similar(G, size(G, 1))
+    x_new = similar(x)
+    z = similar(G, size(G, 1))
+    z_new = similar(z)
+    w = similar(G, size(G, 1))
+    w_new = similar(w)
+    fill!(x, 0)
+    fill!(z, 0)
+    fill!(w, 0)
     Δx, Δz, Δw = 0, 0, 0
     @showprogress for iter = 1:maxiter
         x_new =  (mean(G; dims = 2) + ρ*(z-w))/(1+ρ)
         z_new = prox_l1.(x_new + w; λ = λ/ρ)
         w_new = w + x_new - z_new
         Δx, Δz, Δw = norm(x-x_new, Inf), norm(z-z_new, Inf), norm(w-w_new, Inf)
-        x = x_new; z = z_new; w = w_new
+        copy!(z, x_new)
+        copy!(x, x_new)
+        copy!(w, w_new)
     end
     @info "Δx = $(Δx), Δz = $(Δz), Δw = $(Δw)"
     x
+end
+
+function fitnmf(G, L, K1, K2, k; α = 1e-2, λ1 = 1e-2, λ2 = 1e-2, μ1 = 1e-2, μ2 = 1e-2, ρ = 1e-2, iter = 500, print_iter = 50, initialize = :nndsvd, η = 0.5)
+    # use multiplicative updates
+    U = similar(G, size(G, 1), k)
+    U_new = similar(U)
+    V = similar(G, size(G, 2), k)
+    V_new = similar(V)
+    #
+    L = L + ρ*I
+    K1 = K1 + ρ*I
+    K2 = K2 + ρ*I
+    # initialize
+    @info "Initializing as $(initialize)"
+    if initialize === :rand
+        U .= rand(size(U))
+        V .= rand(size(V))
+    elseif initialize === :nndsvd
+        U_init, V_init = NMF.nndsvd(G, k)
+        copy!(U, U_init .+ 0.01*norm(G, Inf)*rand(size(U)))
+        copy!(V, V_init' .+ 0.01*norm(G, Inf)*rand(size(V)))
+    end
+    V *= mean(U)
+    U ./= sum(U; dims = 2)
+    for it = 1:iter
+        # U_new .= U .* ((G*V) ./ (U*V'*V + λ1*(L*U) .+ λ2))
+        # V_new .= V .* ((G'*U) ./ (V*U'*U .+ μ))
+        U_new .= U .* ((G*V) ./ (U*V'*V + α*(L*U*V'*V) + λ1*(K1*U) .+ λ2))
+        U_new ./= sum(U_new; dims = 2)
+        V_new .= V .* ((G'*U) ./ (V*U'*U + α*(V*U'*L*U) + μ1*(K2*V) .+ μ2))
+        if (it % print_iter == 1)
+            ΔU, ΔV = norm(U - U_new, Inf), norm(V - V_new, Inf)
+            @info "iteration $(it), (ΔU, ΔV) = $((ΔU, ΔV))"
+        end
+        U .= relu.((1-η)U + η*U_new)
+        V .= relu.((1-η)V + η*V_new)
+    end
+    U, V
+end
+
+function fitntf(G, L, λ, μ, k; iter = 250, print_iter = 50, ρ = 1e-2)
+    A = [similar(G, size(G, i), k) for i = 1:length(size(G))]
+    A_new = [similar(a) for a in A]
+    S = zeros([k for _ = 1:length(size(G))]...)
+    for i = 1:k
+        S[i,i,i] = 1.0
+    end
+    for i = 1:length(A)
+        factor_cp = tl_decomp.non_negative_parafac(G, rank = k, init = "svd", n_iter_max = 1)
+        copy!(A[i], factor_cp.factors[i])
+        L[i] = L[i] + ρ*I
+    end
+    A[1] ./= sum(A[1]; dims = 2)
+    ΔA = zeros(length(A))
+    for it = 1:iter
+        for i = 1:length(A)
+            inds = [j for j in range(length=length(A)) if j != i]
+            Bi = tenmat(ttm(S, [Matrix(A[j]) for j in inds], inds), i)
+            A_new[i] .= relu.((A[i] .* (tenmat(G, i) * Bi')) ./ (A[i]*Bi*Bi' + λ[i]*L[i]*A[i] .+ μ[i]))
+            # normalize first factor
+            if i == 1
+                A_new[i] ./= sum(A_new[i]; dims = 2)
+            end
+            if it % print_iter == 1
+                ΔA[i] = norm(A[i] - A_new[i], Inf)
+            end
+            copy!(A[i], A_new[i])
+        end
+        if it % print_iter == 1
+            @info "iteration $(it): ΔA= $(ΔA)"
+        end
+    end
+    S, A
 end

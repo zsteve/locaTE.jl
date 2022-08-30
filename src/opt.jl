@@ -64,12 +64,19 @@ function fitsp_mean(G; ρ = 0.01, λ = 0.001, maxiter = 100)
     x
 end
 
-function fitnmf(G, L, K1, K2, k; α = 5, λ1 = 1e-2, λ2 = 1e-2, μ1 = 1e-2, μ2 = 1e-2, iter = 500, print_iter = 50, initialize = :nndsvd)
+function fitnmf(G, L_all, L, k; α = 1e-2, λ = [1e-2, 1e-2], μ = [1e-2, 1e-2], iter = 500, print_iter = 50, initialize = :nndsvd, δ = 1e-5, dictionary = false, η = 1.0)
     # use multiplicative updates
     U = similar(G, size(G, 1), k)
     U_new = similar(U)
     V = similar(G, size(G, 2), k)
     V_new = similar(V)
+    #
+    D = Diagonal(diag(L))
+    A = D - L 
+    D1 = Diagonal(diag(L_all[1]))
+    D2 = Diagonal(diag(L_all[2]))
+    A1 = D1 - L_all[1]
+    A2 = D2 - L_all[2]
     # initialize
     @info "Initializing as $(initialize)"
     if initialize === :rand
@@ -79,19 +86,108 @@ function fitnmf(G, L, K1, K2, k; α = 5, λ1 = 1e-2, λ2 = 1e-2, μ1 = 1e-2, μ2
         U_init, V_init = NMF.nndsvd(G, k)
         copy!(U, U_init)
         copy!(V, V_init')
+    elseif initialize === :nmf
+        tmp = nnmf(G, k; alg = :multmse, maxiter = 2)
+        copy!(U, tmp.W)
+        copy!(V, tmp.H')
     end
+    if dictionary
+        V *= mean(sum(U; dims = 2))
+        U ./= sum(U; dims = 2)
+    end
+    trace = []
     for it = 1:iter
-        # U_new .= U .* ((G*V) ./ (U*V'*V + λ1*(L*U) .+ λ2))
-        # V_new .= V .* ((G'*U) ./ (V*U'*U .+ μ))
-        U_new .= U .* ((G*V) ./ (U*V'*V + α*(L*U*V'*V) + λ1*(K1*U) .+ λ2))
-        V_new .= V .* ((G'*U) ./ (V*U'*U + α*(V*U'*L*U) + μ1*(K2*V) .+ μ2))
-        η = 0.5
-        U .= (1-η)U + η*U_new
-        V .= (1-η)V + η*V_new
-        if (it % print_iter == 1)
+        function objective()
+            Dict(:df => norm(U*V' - G, 2)^2 / 2,
+                 :smooth => α/2*tr(V*U'*L*(U*V')),
+                 :smooth_U => λ[1]/2*tr(U'*L_all[1]*U),
+                 :sp_U => λ[2]*norm(U, 1),
+                 :smooth_V => μ[1]/2*tr(V'*L_all[2]*V),
+                 :sp_V => μ[2]*norm(V, 1))
+        end
+        # U_new .= relu.(U .* (G*V)) ./ (U*V'*V + λ[1]*(K1*U) .+ λ[2] .+ δ)
+        # U_new .= relu.(U .* (G*V + λ[1]*A1*U)) ./ (U*V'*V + λ[1]*(D1*U) .+ λ[2] .+ δ)
+        U_new .= relu.(U .* (G*V + λ[1]*A1*U + α*A*U*V'*V)) ./ (α*D*U*V'*V + U*V'*V + λ[1]*(D1*U) .+ λ[2] .+ δ)
+        if dictionary
+            U_new ./= sum(U_new; dims = 2)
+        end
+        # V_new .= relu.(V .* (G'*U)) ./ (V*U'*U + μ[1]*(K2*V) .+ μ[2] .+ δ)
+        # V_new .= relu.(V .* (G'*U + μ[1]*A2*V)) ./ (V*U'*U + μ[1]*(D2*V) .+ μ[2] .+ δ)
+        V_new .= relu.(V .* (G'*U + μ[1]*A2*V + α*V*U'*A*U)) ./ (α*V*U'*D*U + V*U'*U + μ[1]*(D2*V) .+ μ[2] .+ δ)
+        if (it % print_iter == 0)
             ΔU, ΔV = norm(U - U_new, Inf), norm(V - V_new, Inf)
-            @info "iteration $(it), (ΔU, ΔV) = $((ΔU, ΔV))"
+            obj = objective()
+            @info obj
+            l = sum([v for (k, v) in obj])
+            @info "iteration $(it), (ΔU, ΔV) = $((ΔU, ΔV)), L = $(l), objs = $(obj)"
+            push!(trace, l)
+        end
+        # copy!(U, U_new)
+        # copy!(V, V_new)
+        U .= (1-η)*U + η*U_new
+        V .= (1-η)*V + η*V_new
+    end
+    U, V, trace
+end
+
+function fitntf(G, L, λ, μ, α, k; iter = 250, print_iter = 50, dictionary = false, δ = 1e-5)
+    A = [similar(G, size(G, i), k) for i = 1:length(size(G))]
+    A_new = [similar(a) for a in A]
+    S = zeros([k for _ = 1:length(size(G))]...)
+    for i = 1:k
+        S[i,i,i] = 1.0
+    end
+    for i = 1:length(A)
+        factor_cp = tl_decomp.non_negative_parafac(G, rank = k, init = "svd", n_iter_max = 1, random_state = 0)
+        copy!(A[i], factor_cp.factors[i])
+    end
+    if dictionary
+        A[1] ./= sum(A[1]; dims = 2)
+    end
+    # 
+    D = [Diagonal(diag(l)) for l in L]
+    W = [d - l  for (d, l) in zip(D, L)]
+    ΔA = zeros(length(A))
+    trace = []
+    for it = 1:iter
+        function objective()
+            X = ttm(S, A, 1:length(A))
+            Dict(:df => norm(X - G, 2)^2 / 2,
+                    :smooth => [ λ[i]/2 * tr(A[i]'*L[i]*A[i]) for i = 1:length(A) ],
+                    :sparse => [ μ[i] * norm(A[i], 1) for i = 1:length(A) ]
+                    )
+        end
+        for i = 1:length(A)
+            inds = [j for j in range(length=length(A)) if j != i]
+            Bi = tenmat(ttm(S, [Matrix(A[j]) for j in inds], inds), i)
+            # didn't split L into + and - parts 
+            # A_new[i] .= relu.(A[i] .* (tenmat(G, i) * Bi') ./ (A[i]*Bi*Bi' + λ[i]*L[i]*A[i] .+ μ[i] .+ δ))
+            # don't have full smoothness constraint 
+            # A_new[i] .= relu.(A[i] .* (tenmat(G, i) * Bi' + λ[i]*W[i]*A[i]) ./ (A[i]*Bi*Bi' + λ[i]*D[i]*A[i] .+ μ[i] .+ δ))
+            if i == 1
+                A_new[i] .= relu.(A[i] .* (tenmat(G, i) * Bi' + λ[i]*W[i]*A[i] + α*W[i]*A[i]*Bi*Bi') ./ (A[i]*Bi*Bi' + λ[i]*D[i]*A[i] + α*D[i]*A[i]*Bi*Bi' .+ μ[i] .+ δ))
+            else
+                Btilde_plus = tenmat(ttm(S, [Matrix((j == 1 ? D[1] : I) * A[j]) for j in inds], inds), i)
+                Btilde_minus = tenmat(ttm(S, [Matrix((j == 1 ? W[1] : I) * A[j]) for j in inds], inds), i)
+                C_plus = Btilde_plus*Bi' + Bi*Btilde_plus'
+                C_minus = Btilde_minus*Bi' + Bi*Btilde_minus'
+                A_new[i] .= relu.(A[i] .* (tenmat(G, i) * Bi' + λ[i]*W[i]*A[i] + α*A[i]*C_minus) ./ (A[i]*Bi*Bi' + λ[i]*D[i]*A[i] + α*A[i]*C_plus .+ μ[i] .+ δ))
+            end
+            # normalize first factor
+            if dictionary && (i == 1)
+                A_new[i] ./= sum(A_new[i]; dims = 2)
+            end
+            if it % print_iter == 1
+                ΔA[i] = norm(A[i] - A_new[i], Inf)
+            end
+            copy!(A[i], A_new[i])
+        end
+        if it % print_iter == 1
+            obj = objective()
+            loss = sum([sum(v) for (k, v) in obj])
+            @info "iteration $(it): ΔA= $(ΔA), L = $loss, obj = $(obj)"
+            push!(trace, loss)
         end
     end
-    relu.(U), relu.(V)
+    S, A, trace
 end

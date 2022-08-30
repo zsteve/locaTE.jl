@@ -11,7 +11,11 @@ using NearestNeighbors
 using Discretizers
 using Distributions 
 using Plots: findnz
-using NMF 
+using NMF
+using TensorToolbox
+using PyCall
+
+const tl_decomp = PyCall.PyNULL()
 
 include("inference.jl")
 include("util.jl")
@@ -24,6 +28,10 @@ export compute_coupling
 export fitsp
 export aupr, prec_rec_rate
 export auroc, tp_fp_rate
-export fitnmf
+export fitnmf, fitntf
+
+function __init__()
+    return copy!(tl_decomp, pyimport("tensorly.decomposition"))
+end
 
 end # module
