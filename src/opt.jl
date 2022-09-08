@@ -64,7 +64,7 @@ function fitsp_mean(G; ρ = 0.01, λ = 0.001, maxiter = 100)
     x
 end
 
-function fitnmf(G, L_all, L, H, k; α = 1e-2, β = 0, λ = [1e-2, 1e-2], μ = [1e-2, 1e-2], iter = 500, print_iter = 50, initialize = :nndsvd, δ = 1e-5, dictionary = false, η = 1.0)
+function fitnmf(G, L_all, L, H, k; α = 0, β = 0, λ = [0, 0], μ = [0, 0], iter = 500, print_iter = 50, initialize = :nndsvd, δ = 1e-5, dictionary = false, η = 1.0)
     # use multiplicative updates
     U = similar(G, size(G, 1), k)
     U_new = similar(U)
@@ -80,8 +80,8 @@ function fitnmf(G, L_all, L, H, k; α = 1e-2, β = 0, λ = [1e-2, 1e-2], μ = [1
     # initialize
     @info "Initializing NMF decomposition with $(initialize)"
     if initialize === :rand
-        copy!(U, rand(size(U)))
-        copy!(V, rand(size(V)))
+        copy!(U, rand(size(U)...))
+        copy!(V, rand(size(V)...))
     elseif initialize === :nndsvd
         U_init, V_init = NMF.nndsvd(G, k)
         copy!(U, U_init)
@@ -92,7 +92,7 @@ function fitnmf(G, L_all, L, H, k; α = 1e-2, β = 0, λ = [1e-2, 1e-2], μ = [1
         copy!(V, tmp.H')
     end
     if dictionary
-        V *= mean(sum(U; dims = 2))
+        V .*= mean(sum(U; dims = 2))
         U ./= sum(U; dims = 2)
     end
     trace = []
@@ -127,7 +127,7 @@ function fitnmf(G, L_all, L, H, k; α = 1e-2, β = 0, λ = [1e-2, 1e-2], μ = [1
     U, V, trace
 end
 
-function fitntf(G, L, L_g, λ, μ, α, k; iter = 250, print_iter = 50, dictionary = false, δ = 1e-5, η = 1.0)
+function fitntf(G, L, L_g, H, λ, μ, α, β, k; iter = 250, print_iter = 50, dictionary = false, δ = 1e-5, η = 1.0)
     # factor matrices
     A = [similar(G, size(G, i), k) for i = 1:length(size(G))]
     A_new = [similar(a) for a in A]
@@ -159,20 +159,21 @@ function fitntf(G, L, L_g, λ, μ, α, k; iter = 250, print_iter = 50, dictionar
             Dict(:df => norm(X - G, 2)^2 / 2,
                  :smooth => [ λ[i]/2 * tr(A[i]'*L[i]*A[i]) for i = 1:length(A) ],
                  :sparse => [ μ[i] * norm(A[i], 1) for i = 1:length(A) ],
-                 :smooth_mode1 => α/2*tr(X1'*L_g*X1)
-                    )
+                 :smooth_mode1 => α/2*tr(X1'*L_g*X1), 
+                 :affine => -β*sum(H .* X)
+                )
         end
         for i = 1:length(A)
             inds = [j for j in range(length=length(A)) if j != i]
             Bi = tenmat(ttm(S, [Matrix(A[j]) for j in inds], inds), i)
             if i == 1
-                A_new[i] .= relu.(A[i] .* (tenmat(G, i) * Bi' + λ[i]*W[i]*A[i] + α*W_g*A[i]*Bi*Bi') ./ (A[i]*Bi*Bi' + λ[i]*D[i]*A[i] + α*D_g*A[i]*Bi*Bi' .+ μ[i] .+ δ))
+                A_new[i] .= relu.(A[i] .* (tenmat(G, i) * Bi' + λ[i]*W[i]*A[i] + α*W_g*A[i]*Bi*Bi' + β*tenmat(H, i)*Bi') ./ (A[i]*Bi*Bi' + λ[i]*D[i]*A[i] + α*D_g*A[i]*Bi*Bi' .+ μ[i] .+ δ))
             else
                 Btilde_plus = tenmat(ttm(S, [Matrix((j == 1 ? D_g : I) * A[j]) for j in inds], inds), i)
                 Btilde_minus = tenmat(ttm(S, [Matrix((j == 1 ? W_g : I) * A[j]) for j in inds], inds), i)
                 C_plus = (Btilde_plus*Bi' + Bi*Btilde_plus')/2
                 C_minus = (Btilde_minus*Bi' + Bi*Btilde_minus')/2
-                A_new[i] .= relu.(A[i] .* (tenmat(G, i) * Bi' + λ[i]*W[i]*A[i] + α*A[i]*C_minus) ./ (A[i]*Bi*Bi' + λ[i]*D[i]*A[i] + α*A[i]*C_plus .+ μ[i] .+ δ))
+                A_new[i] .= relu.(A[i] .* (tenmat(G, i) * Bi' + λ[i]*W[i]*A[i] + α*A[i]*C_minus + β*tenmat(H, i)*Bi') ./ (A[i]*Bi*Bi' + λ[i]*D[i]*A[i] + α*A[i]*C_plus .+ μ[i] .+ δ))
             end
             # normalize first factor
             if dictionary && (i == 1)
