@@ -16,7 +16,7 @@ function prec_rec_rate(J::AbstractMatrix, Z::AbstractMatrix, q::Real; J_thresh =
 end
 
 function prec_rec_rate(J::AbstractMatrix, Z::AbstractMatrix, Nq::Integer; kwargs...)
-    hcat([0, 1], [prec_rec_rate(J, Z, q; kwargs...) for q in range(0, 1; length = Nq)]...)'
+    hcat([0, 1], [prec_rec_rate(J, Z, q; kwargs...) for q in range(0, 1 + 1e-6; length = Nq)]...)'
 end
 
 function tp_fp_rate(J::AbstractMatrix, Z::AbstractMatrix, q::Real; J_thresh = 0.5)
@@ -30,5 +30,5 @@ function tp_fp_rate(J::AbstractMatrix, Z::AbstractMatrix, q::Real; J_thresh = 0.
 end
 
 function tp_fp_rate(J::AbstractMatrix, Z::AbstractMatrix, Nq::Integer; kwargs...)
-    hcat([0, 0], [tp_fp_rate(J, Z, q; kwargs...) for q in range(0, 1; length = Nq)]...)'
+    hcat([0, 0], [tp_fp_rate(J, Z, q; kwargs...) for q in range(0, 1 + 1e-6; length = Nq)]...)'
 end

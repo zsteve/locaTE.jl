@@ -18,19 +18,24 @@ function get_MI_undir(X::AbstractMatrix, prod::AbstractSparseMatrix, genes_i::Ve
     mi
 end
 
-function get_MI(X::AbstractMatrix, coupling::AbstractSparseMatrix, genes_prev::Vector{Int}, genes_next::Vector{Int}; kwargs...)
+function get_MI(X::AbstractMatrix, coupling::AbstractSparseMatrix, genes_prev::Vector{Int}, genes_next::Vector{Int}; disc = nothing, kwargs...)
     @assert length(genes_prev) == length(genes_next)
     mi = zeros(length(genes_prev))
-    # construct row and col indices/maps 
-    row_idxs = findnz(sum(coupling; dims = 2))[1]
+    # construct row and col indices/maps
+    w_row = sum(coupling; dims = 2)
+    row_idxs = findnz(w_row)[1]
     row_map = similar(row_idxs, Int64, size(X, 1))
     row_map[row_idxs] .= collect(1:length(row_idxs))
-    col_idxs = findnz(sum(coupling; dims = 1))[2]
+    w_col = sum(coupling; dims = 1)
+    col_idxs = findnz(w_col)[2]
     col_map = similar(col_idxs, Int64, size(X, 1))
     col_map[col_idxs] .= collect(1:length(col_idxs))
     # discretize each gene separately
-    disc_prev = [discretization(X[row_idxs, i]; kwargs...) for i = 1:size(X, 2)]
-    disc_next = [discretization(X[col_idxs, i]; kwargs...) for i = 1:size(X, 2)]
+    disc_prev = disc === nothing ? [discretization(X[row_idxs, i]; kwargs...) for i = 1:size(X, 2)] : [(x[1], x[2][row_idxs]) for x in disc]
+    disc_next = disc === nothing ? [discretization(X[col_idxs, i]; kwargs...) for i = 1:size(X, 2)] : [(x[1], x[2][col_idxs]) for x in disc]
+    # _disc = [discretization(X[:, i]; kwargs...) for i = 1:size(X, 2)]
+    # disc_next = [(x[1], x[2][col_idxs]) for x in _disc]
+    # disc_prev = [(x[1], x[2][row_idxs]) for x in _disc]
     for j = 1:length(genes_prev)
         try
             mi[j] = get_conditional_mutual_information(discretized_joint_distribution(coupling, X, genes_prev[j], genes_next[j], row_idxs, col_idxs, row_map, col_map, disc_prev, disc_next; kwargs...))

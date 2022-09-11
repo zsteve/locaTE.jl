@@ -5,6 +5,7 @@ function discretization(x::AbstractVector; alg = DiscretizeUniformWidth(:scott))
         bi = encode(disc, x)
         return be, bi
     catch e
+        @info e
         return [], zero.(x)
     end
 end
@@ -14,7 +15,8 @@ function discretizations_bulk(X::AbstractMatrix; alg = DiscretizeBayesianBlocks(
     discretizers_all = map(LinearDiscretizer, binedges_all)
     # counts_all = [get_discretization_counts(d, x) for (d, x) in zip(discretizers_all, eachcol(X))]
     binids_all = [encode(discretizers_all[i], X[:, i]) for i = 1:size(X, 2)]
-    return discretizers_all, binedges_all, binids_all
+    # return discretizers_all, binedges_all, binids_all
+    return zip(binedges_all, binids_all)
 end
 
 function discretized_joint_distribution(prod::AbstractSparseMatrix, X::AbstractMatrix, i::Int, j::Int, row_idxs, col_idxs, row_map, col_map, disc_prev, disc_next; alg = DiscretizeUniformWidth(:scott))
