@@ -26,7 +26,7 @@ export get_MI_undir, get_MI
 export CLR, wCLR, apply_clr, apply_wclr
 export compute_coupling
 export fitsp
-export aupr, prec_rec_rate
+export aupr, prec_rec_rate, ep
 export auroc, tp_fp_rate
 export fitnmf, fitntf
 

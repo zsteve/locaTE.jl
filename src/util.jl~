@@ -6,6 +6,11 @@ cartesian_to_index(i, j; N) = N*(j-1)+i
 aupr(p::AbstractVector, r::AbstractVector) = dot(p[1:end-1], abs.(r[2:end]-r[1:end-1]))
 auroc(tp::AbstractVector, fp::AbstractVector) = aupr(tp, fp)
 
+function ep(p::AbstractVector, r::AbstractVector; f = 0.1)
+    ind = r .<= f
+    aupr(p[ind], r[ind])
+end
+
 function prec_rec_rate(J::AbstractMatrix, Z::AbstractMatrix, q::Real; J_thresh = 0.5)
     edges_true = (abs.(J) .>= J_thresh)
     edges_infer = (Z .>= q * maximum(Z))
@@ -32,3 +37,4 @@ end
 function tp_fp_rate(J::AbstractMatrix, Z::AbstractMatrix, Nq::Integer; kwargs...)
     hcat([0, 0], [tp_fp_rate(J, Z, q; kwargs...) for q in range(0, 1 + 1e-6; length = Nq)]...)'
 end
+
