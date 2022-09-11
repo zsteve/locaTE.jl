@@ -1,7 +1,7 @@
 name = "scNetworkInference"
 uuid = "d47a2e43-82e6-47ba-a340-eddb77145d33"
 authors = ["Stephen Zhang <syz@syz.id.au>"]
-version = "0.1.4"
+version = "0.1.5"
 
 [deps]
 Discretizers = "6e83dbb3-75ca-525b-8ae2-3751f0dd50b4"
