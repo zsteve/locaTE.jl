@@ -14,6 +14,10 @@ using Plots: findnz
 using NMF
 using TensorToolbox
 using PyCall
+using CUDA
+using LogExpFunctions
+using SparseArrays
+CUDA.allowscalar(false)
 
 const tl_decomp = PyCall.PyNULL()
 
@@ -21,6 +25,7 @@ include("inference.jl")
 include("util.jl")
 include("discretize.jl")
 include("opt.jl")
+include("gpu.jl")
 
 export get_MI
 export CLR, wCLR, apply_clr, apply_wclr
@@ -29,6 +34,7 @@ export fitsp
 export aupr, prec_rec_rate, ep
 export auroc, tp_fp_rate
 export fitnmf, fitntf
+export get_MI!, get_joint_cache, getcoupling_dense, getcoupling, getcoupling_sparse
 
 function __init__()
     return copy!(tl_decomp, pyimport("tensorly.decomposition"))

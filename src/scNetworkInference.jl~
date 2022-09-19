@@ -22,7 +22,7 @@ include("util.jl")
 include("discretize.jl")
 include("opt.jl")
 
-export get_MI_undir, get_MI
+export get_MI
 export CLR, wCLR, apply_clr, apply_wclr
 export compute_coupling
 export fitsp
