@@ -92,7 +92,8 @@ function get_MI!(mi_all, joint_cache, coupling_I, coupling_J, coupling_V, N_gene
     end
     idx1=(1+offset_x):(N_x+offset_x)
     idx2=(1+offset_y):(N_y+offset_y)
-    copy!(view(mi_all, idx1, idx2), conditional_mutual_information(joint_cache[1:N_x, 1:N_y, :, :]))
+    copy!(view(mi_all, idx1, idx2), conditional_mutual_information(joint_cache[1:N_x, 1:N_y, :, :, :]))
+    # copy!(mi_all, conditional_mutual_information(joint_cache))
 end
 
 function get_MI!(mi_all, joint_cache, coupling, N_genes, ids; threads=(8,8,8), blocks=128, offset_x = nothing, N_x = nothing, offset_y = nothing, N_y = nothing)
@@ -106,7 +107,7 @@ function get_MI!(mi_all, joint_cache, coupling, N_genes, ids; threads=(8,8,8), b
     end
     idx1=(1+offset_x):(N_x+offset_x)
     idx2=(1+offset_y):(N_y+offset_y)
-    copy!(view(mi_all, idx1, idx2), conditional_mutual_information(joint_cache[1:N_x, 1:N_y, :, :]))
+    copy!(view(mi_all, idx1, idx2), conditional_mutual_information(joint_cache[1:N_x, 1:N_y, :, :, :]))
 end
 
 function getblocks(N_genes, blocks_x, blocks_y)
