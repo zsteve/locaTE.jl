@@ -1,4 +1,4 @@
-function accum_joint_probs_dense!(gamma, coupling, ids, offset_x, N_x, offset_y, N_y)
+function accum_joint_probs_dense!(gamma, coupling, ids0, ids1, offset_x, N_x, offset_y, N_y)
     # for full block iteration, set offset_x = offset_y = 0 and N_x = size(gamma, 1), etc. 
     index_i = (blockIdx().x-1)*blockDim().x + threadIdx().x
     index_j = (blockIdx().y-1)*blockDim().y + threadIdx().y
@@ -17,7 +17,7 @@ function accum_joint_probs_dense!(gamma, coupling, ids, offset_x, N_x, offset_y,
         i1 = ((i-1) ÷ N_x) + 1
         for j = index_j:stride_j:size(coupling, 1)
             for k = index_k:stride_k:size(coupling, 2)
-                @inbounds CUDA.@atomic gamma[i0, i1, ids[j, i0_abs], ids[k, i1_abs], ids[j, i1_abs]] += coupling[j, k]
+                @inbounds CUDA.@atomic gamma[i0, i1, ids0[j, i0_abs], ids1[k, i1_abs], ids0[j, i1_abs]] += coupling[j, k]
             end
         end
     end
@@ -55,7 +55,7 @@ function getcoupling_dense_trimmed(i, P, QT, R)
     coupling = QT * (reshape(pi, :, 1) .* P)
     row_idxs = vec(sum(coupling; dims = 2) .> 0)
     col_idxs = vec(sum(coupling; dims = 1) .> 0)
-    return coupling[row_idxs, :][:, col_idxs]
+    return coupling[row_idxs, col_idxs], row_idxs, col_idxs
 end
 
 function getcoupling_sparse(i, P, QT, R)
@@ -96,14 +96,14 @@ function get_MI!(mi_all, joint_cache, coupling_I, coupling_J, coupling_V, N_gene
     # copy!(mi_all, conditional_mutual_information(joint_cache))
 end
 
-function get_MI!(mi_all, joint_cache, coupling, N_genes, ids; threads=(8,8,8), blocks=128, offset_x = nothing, N_x = nothing, offset_y = nothing, N_y = nothing)
+function get_MI!(mi_all, joint_cache, coupling, N_genes, ids0, ids1; threads=(8,8,8), blocks=128, offset_x = nothing, N_x = nothing, offset_y = nothing, N_y = nothing)
     CUDA.fill!(joint_cache, 0f0)
     offset_x = (offset_x === nothing) ? 0 : offset_x
     offset_y = (offset_y === nothing) ? 0 : offset_y
     N_x = (N_x === nothing) ? size(joint_cache, 1) : N_x
     N_y = (N_y === nothing) ? size(joint_cache, 2) : N_y
     CUDA.@sync begin
-        @cuda threads=threads blocks=blocks accum_joint_probs_dense!(joint_cache, coupling, ids, offset_x, N_x, offset_y, N_y)
+        @cuda threads=threads blocks=blocks accum_joint_probs_dense!(joint_cache, coupling, ids0, ids1, offset_x, N_x, offset_y, N_y)
     end
     idx1=(1+offset_x):(N_x+offset_x)
     idx2=(1+offset_y):(N_y+offset_y)
