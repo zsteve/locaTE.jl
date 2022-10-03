@@ -2,19 +2,25 @@ prox_l1(x, λ) = sign(x)*relu(abs(x) - λ)
 
 function fitsp(G::AbstractMatrix, L::AbstractMatrix, α; ρ = 0.05, λ1 = 25.0, λ2 = 0.075, maxiter = 2500)
     # scaling factors
-    L_scaled = L # sqrt.(α) * L * sqrt.(α)
-    X = G;
-    Z = G;
+    L_scaled = sqrt.(α) * L * sqrt.(α)
+    X = similar(G);
+    copy!(X, G)
+    Z = similar(G);
+    copy!(Z, G)
     W = zero(G);
+    X_new = similar(X); Z_new = similar(Z); W_new = similar(W);
     ΔX, ΔZ, ΔW = 0, 0, 0
     @showprogress for iter = 1:maxiter
         # X_new = ((1+ρ)I + λ1*L) \ (G - ρ*(W-Z));
         X_new = (α + λ1*L_scaled + ρ*I) \ (α*G + ρ*(Z-W)); 
         # Z_new = prox_l1.(X_new+W; λ = λ2/ρ);
-        Z_new = hcat([prox_l1.(X_new[i, :]+W[i, :]; λ = λ2*diag(α)[i]/ρ) for i = 1:size(L, 1)]...)';
+        for i = 1:size(L, 1)
+            # Z_new = hcat([prox_l1.(X_new[i, :]+W[i, :], λ2*diag(α)[i]/ρ) for i = 1:size(L, 1)]...)';
+            Z_new[i, :] .= prox_l1.(X_new[i, :]+W[i, :], λ2*diag(α)[i]/ρ)
+        end
         W_new = W + X_new - Z_new
         ΔX, ΔZ, ΔW = norm(X-X_new, Inf), norm(Z-Z_new, Inf), norm(W-W_new, Inf)
-        X = X_new; Z = Z_new; W = W_new
+        copy!(X, X_new); copy!(Z, Z_new); copy!(W, W_new)
     end
     @info "ΔX = $(ΔX), ΔZ = $(ΔZ), ΔW = $(ΔW)"
     @info "tr(X'LX) = $(tr(X'*L_scaled*X)), 0.5|X-G|^2 = $(0.5*norm(X-G)), |X|1 = $(norm(X, 1))"
@@ -23,8 +29,10 @@ end
 
 function fitsp(G::AbstractMatrix, L::AbstractMatrix; ρ = 0.05, λ1 = 25.0, λ2 = 0.075, maxiter = 2500)
     # scaling factors
-    X = G;
-    Z = G;
+    X = similar(G);
+    copy!(X, G)
+    Z = similar(G);
+    copy!(Z, G)
     W = zero(G);
     ΔX, ΔZ, ΔW = 0, 0, 0
     @showprogress for iter = 1:maxiter
