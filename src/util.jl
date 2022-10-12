@@ -13,7 +13,7 @@ end
 
 function prec_rec_rate(J::AbstractMatrix, Z::AbstractMatrix, q::Real; J_thresh = 0.5)
     edges_true = (abs.(J) .> J_thresh)
-    edges_infer = (Z .> q * maximum(Z))
+    edges_infer = (Z .> (minimum(Z) + q*(maximum(Z)-minimum(Z))))
     tp = sum(edges_true .& edges_infer)
     fp = sum(.!edges_true .& edges_infer)
     fn = sum(edges_true .& .!edges_infer)
@@ -26,7 +26,7 @@ end
 
 function tp_fp_rate(J::AbstractMatrix, Z::AbstractMatrix, q::Real; J_thresh = 0.5)
     edges_true = (abs.(J) .>= J_thresh)
-    edges_infer = (Z .>= q * maximum(Z))
+    edges_infer = (Z .> (minimum(Z) + q*(maximum(Z)-minimum(Z))))
     tp = sum(edges_true .& edges_infer)
     fp = sum(.!edges_true .& edges_infer)
     fn = sum(edges_true .& .!edges_infer)

@@ -17,6 +17,7 @@ using PyCall
 using CUDA
 using LogExpFunctions
 using SparseArrays
+using EvalMetrics 
 CUDA.allowscalar(false)
 
 const tl_decomp = PyCall.PyNULL()
