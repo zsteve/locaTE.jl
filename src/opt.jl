@@ -125,7 +125,7 @@ function fitnmf(G, L_all, L, H, k; α = 0, β = 0, λ = [0, 0], μ = [0, 0], ite
         if dictionary
             U_new ./= sum(U_new; dims = 2)
         end
-        V_new .= relu.(V .* (G'*U + λ[2]*A2*V + α*V*U'*A*U + β*H'*U)) ./ (α*V*U'*D*U + V*U'*U + λ[2]*(D2*V) .+ μ[1] .+ δ)
+        V_new .= relu.(V .* (G'*U + λ[2]*A2*V + α*V*U'*A*U + β*H'*U)) ./ (α*V*U'*D*U + V*U'*U + λ[2]*(D2*V) .+ μ[2] .+ δ)
         if (it % print_iter == 0)
             ΔU, ΔV = norm(U - U_new, Inf), norm(V - V_new, Inf)
             obj = objective()
