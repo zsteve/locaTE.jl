@@ -1,2 +1,3 @@
 # scNetworkInference.jl
-scNetworkInference
+
+Cell-specific network inference using local transfer entropy
