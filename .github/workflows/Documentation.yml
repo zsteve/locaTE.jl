@@ -23,7 +23,7 @@ jobs:
         with:
           python-version: '3.9'
           architecture: ${{ matrix.arch }}
-	  - run: python -m pip install tensorly
+      - run: python -m pip install tensorly
       - uses: julia-actions/setup-julia@latest
         with:
           version: '1'
