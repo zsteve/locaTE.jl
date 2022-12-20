@@ -14,8 +14,6 @@ The corresponding notebook can be viewed in [nbviewer](<unknown>/examples/data_b
 
 ## Loading required packages
 Load scNetworkInference.jl and other required packages
-using Pkg
-Pkg.develop(path="/home/syz/scNetworkInference.jl/")
 
 ````julia
 using NPZ
