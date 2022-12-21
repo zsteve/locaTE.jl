@@ -1,7 +1,7 @@
- # Mouse ESC-Endoderm example
+# # Mouse ESC-Endoderm example
 # The dataset for this example can be found from the [SCODE Github repo](https://github.com/hmatsu1226/SCODE). 
 #
-# # Load packages
+# ## Load packages
 using NPZ
 using NNlib
 using OptimalTransport
@@ -20,7 +20,7 @@ using Suppressor
 using CSV, DataFrames
 using Printf
 
-# # Load files
+# ## Load files
 # Load dataset and reference
 cd("../../../examples/data_mesc")
 X = relu.(npzread("X.npy") .- 1e-2)
@@ -37,9 +37,9 @@ try
 catch e
     @info "Exception: $e"
     global genes = ["gene_$i" for i = 1:size(X, 2)];
-end
+end;
 
-# # Construct neighborhood kernel and couplings
+# ## Construct neighborhood kernel and couplings
 R = quadreg(ones(size(X, 1)), ones(size(X, 1)), C, 2.5*mean(C));
 gene_idxs = vcat([[j, i]' for i = 1:size(X, 2) for j = 1:size(X, 2)]...);
 k = 1
@@ -49,7 +49,7 @@ P_sp = sparse((P^k))
 QT_sp = sparse((Q^k)')
 R_sp = sparse(R);
 
-# # Visualise coupling 
+# ## Visualise coupling 
 p0 = R[sortperm(dpt)[250], :]
 plt=plot(scatter(X_pca[sortperm(p0), 1], X_pca[sortperm(p0), 2]; marker_z = sort(p0), markerstrokewidth = 0, alpha = 1.0, xlabel = "PCA1", ylabel = "PCA2", title = L"π_0^x"), 
     scatter(X_pca[:, 1], X_pca[:, 2]; marker_z = P_sp'*p0 - QT_sp*p0, color = :bwr, clim = (-0.0101, 0.0101), alpha = 1.0, xlabel = "PCA1", ylabel = "PCA2", title = L"\pi^x_{t} - \pi^x_{-t}"); legend = nothing, layout = (2, 1))
@@ -67,7 +67,7 @@ L = sparse(normalized_laplacian(max.(A, A'), Float64));
 alg = DiscretizeBayesianBlocks()
 disc = scN.discretizations_bulk(X; alg = alg);
 
-# # Perform directed inference
+# ## Perform directed inference
 using Base.Threads
 @info "Directed inference"
 mi_all = zeros(size(X, 1), size(X, 2)^2);
@@ -87,7 +87,7 @@ G = @suppress scN.fitsp(mi_all_clr, L; λ1 = 10.0, λ2 = 0.001, maxiter = 100);
 agg_fun = x -> mean(x[dpt .< 0.9, :]; dims = 1)
 heatmap(reshape(agg_fun(G), size(X, 2), size(X, 2)), xticks = (collect(1:length(genes)), genes), yticks = (collect(1:length(genes)), genes), xrotation = 45, xtickfontsize = 3, ytickfontsize = 3)
 
-# # Rank genes by the total outgoing TE score
+# ## Rank genes by the total outgoing TE score
 total_TE = vec(sum(reshape(maximum(G; dims = 1), size(X, 2), size(X, 2)); dims = 2))
 topk = 25 # show top 25 genes
 bar(1:topk, sort(total_TE; rev = true)[1:topk]; xticks = (1:topk, genes[sortperm(total_TE; rev = true)][1:topk]), xrotation = 45, size = (500, 500))
@@ -105,24 +105,24 @@ plot(scatter(X_pca[:, 1], X_pca[:, 2], marker_z = X[:, findfirst(x -> x == g1, g
     scatter(X_pca[:, 1], X_pca[:, 2], marker_z = reshape(G, :, size(X, 2), size(X, 2))[:, findfirst(x -> x == g1, genes), findfirst(x -> x == g2, genes)], 
             title = "$(g1) → $(g2)", clim = (0, quantile(vec(G[G .> 0]), 0.99))); legend = nothing)
 
-# # ROC and PR curves
+# ## ROC and PR curves
 using EvalMetrics
-plt1=rocplot(vec(J), vec(agg_fun(G)); label = "scGRN")
+plt1=rocplot(vec(J), vec(agg_fun(G)); label = "locaTE")
 rocplot!(vec(J), vec(agg_fun(mi_all)); label = "Raw TE")
-plt2=prplot(vec(J), vec(agg_fun(G)); label = "scGRN")
+plt2=prplot(vec(J), vec(agg_fun(G)); label = "locaTE")
 prplot!(vec(J), vec(agg_fun(mi_all)); label = "Raw TE", ylim = (0, 0.3))
 hline!(plt2, [mean(J .> 0), ]; label = @sprintf("Baseline (auc: %0.2f%%)", 100*mean(J .> 0)))
 plot(plt1, plt2)
 
 # ESCAPE reference
-plt1=rocplot(vec(J_escape[regulators, :]), vec(reshape(agg_fun(G), size(X, 2), size(X, 2))[regulators, :]); label = "scGRN")
+plt1=rocplot(vec(J_escape[regulators, :]), vec(reshape(agg_fun(G), size(X, 2), size(X, 2))[regulators, :]); label = "locaTE")
 rocplot!(vec(J_escape[regulators, :]), vec(reshape(agg_fun(mi_all), size(X, 2), size(X, 2))[regulators, :]); label = "Raw TE")
-plt2=prplot(vec(J_escape[regulators, :]), vec(reshape(agg_fun(G), size(X, 2), size(X, 2))[regulators, :]); label = "scGRN")
+plt2=prplot(vec(J_escape[regulators, :]), vec(reshape(agg_fun(G), size(X, 2), size(X, 2))[regulators, :]); label = "locaTE")
 prplot!(vec(J_escape[regulators, :]), vec(reshape(agg_fun(mi_all), size(X, 2), size(X, 2))[regulators, :]); label = "Raw TE")
 hline!(plt2, [mean(J_escape[regulators, :] .> 0), ]; label = @sprintf("Baseline (auc: %0.2f%%)", 100*mean(J_escape[regulators, :] .> 0)))
 plot(plt1, plt2)
 
-# # Factor analysis with NMF
+# ## Factor analysis with NMF
 qnorm(x, q) = x ./ quantile(vec(x), q)
 Cg = cor(X).^2; Cg[diagind(Cg)] .= 0
 U, V, trace = @suppress scN.fitnmf(relu.(qnorm(mi_all_clr, 0.9)),
