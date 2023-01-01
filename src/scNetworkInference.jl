@@ -10,13 +10,11 @@ using MultivariateStats
 using NearestNeighbors
 using Discretizers
 using Distributions 
-using Plots: findnz
 using NMF
 using TensorToolbox
 using PyCall
 using CUDA
 using LogExpFunctions
-using SparseArrays
 using EvalMetrics 
 CUDA.allowscalar(false)
 

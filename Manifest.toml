@@ -2,7 +2,7 @@
 
 julia_version = "1.8.3"
 manifest_format = "2.0"
-project_hash = "148f521bed09b226a29ee107204da3488c7dd53b"
+project_hash = "a3cdf9614e6c6dc185b57e6cb6d3c2528ff9f194"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -135,9 +135,9 @@ version = "0.25.79"
 
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
-git-tree-sha1 = "2fb1e02f2b635d0845df5d7c167fec4dd739b00d"
+git-tree-sha1 = "b19534d1895d702889b219c382a6e18010797f0b"
 uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
-version = "0.9.3"
+version = "0.8.6"
 
 [[deps.Downloads]]
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
@@ -149,6 +149,12 @@ deps = ["Calculus", "NaNMath", "SpecialFunctions"]
 git-tree-sha1 = "5837a837389fccf076445fce071c8ddaea35a566"
 uuid = "fa6b7ba4-c1ee-5f82-b5fc-ecf0adba8f74"
 version = "0.6.8"
+
+[[deps.EvalMetrics]]
+deps = ["DocStringExtensions", "RecipesBase", "Reexport", "Statistics", "StatsBase"]
+git-tree-sha1 = "08edf9183b70a0a8c075e6bb855561967c84abac"
+uuid = "251d5f9e-10c1-4699-ba24-e0ad168fa3e4"
+version = "0.2.1"
 
 [[deps.ExprTools]]
 git-tree-sha1 = "56559bbef6ca5ea0c0818fa5c90320398a6fbf8d"
@@ -437,6 +443,12 @@ deps = ["LinearAlgebra", "Random", "Test"]
 git-tree-sha1 = "de93780c85c207586369522af7525aa3011b09c3"
 uuid = "0448d7d9-159c-5637-8537-fd72090fea46"
 version = "0.1.0"
+
+[[deps.RecipesBase]]
+deps = ["SnoopPrecompile"]
+git-tree-sha1 = "18c35ed630d7229c5584b945641a73ca83fb5213"
+uuid = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
+version = "1.3.2"
 
 [[deps.Reexport]]
 git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
