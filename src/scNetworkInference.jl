@@ -9,13 +9,13 @@ using ProgressMeter
 using MultivariateStats
 using NearestNeighbors
 using Discretizers
-using Distributions 
+using Distributions
 using NMF
 using TensorToolbox
 using PyCall
 using CUDA
 using LogExpFunctions
-using EvalMetrics 
+using EvalMetrics
 CUDA.allowscalar(false)
 
 const tl_decomp = PyCall.PyNULL()

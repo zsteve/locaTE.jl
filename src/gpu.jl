@@ -1,8 +1,8 @@
 function accum_joint_probs_dense!(gamma, coupling, ids0, ids1, offset_x, N_x, offset_y, N_y)
     # for full block iteration, set offset_x = offset_y = 0 and N_x = size(gamma, 1), etc. 
-    index_i = (blockIdx().x-1)*blockDim().x + threadIdx().x
-    index_j = (blockIdx().y-1)*blockDim().y + threadIdx().y
-    index_k = (blockIdx().z-1)*blockDim().z + threadIdx().z
+    index_i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    index_j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    index_k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
     # stride_i, stride_j, stride_k = blockDim().x, blockDim().y, blockDim().z
     stride_i = gridDim().x * blockDim().x
     stride_j = gridDim().y * blockDim().y
@@ -11,23 +11,39 @@ function accum_joint_probs_dense!(gamma, coupling, ids0, ids1, offset_x, N_x, of
     for i = index_i:stride_i:N_x*N_y
         # i0 = ((i-1) % size(gamma, 1)) + 1
         # i1 = ((i-1) ÷ size(gamma, 1)) + 1
-        i0_abs = ((i-1) % N_x) + 1 + offset_x
-        i1_abs = ((i-1) ÷ N_x) + 1 + offset_y
-        i0 = ((i-1) % N_x) + 1
-        i1 = ((i-1) ÷ N_x) + 1
+        i0_abs = ((i - 1) % N_x) + 1 + offset_x
+        i1_abs = ((i - 1) ÷ N_x) + 1 + offset_y
+        i0 = ((i - 1) % N_x) + 1
+        i1 = ((i - 1) ÷ N_x) + 1
         for j = index_j:stride_j:size(coupling, 1)
             for k = index_k:stride_k:size(coupling, 2)
-                @inbounds CUDA.@atomic gamma[i0, i1, ids0[j, i0_abs], ids1[k, i1_abs], ids0[j, i1_abs]] += coupling[j, k]
+                @inbounds CUDA.@atomic gamma[
+                    i0,
+                    i1,
+                    ids0[j, i0_abs],
+                    ids1[k, i1_abs],
+                    ids0[j, i1_abs],
+                ] += coupling[j, k]
             end
         end
     end
     return nothing
 end
 
-function accum_joint_probs_sparse!(gamma, coupling_I, coupling_J, coupling_V, ids, offset_x, N_x, offset_y, N_y)
-    index_i = (blockIdx().x-1)*blockDim().x + threadIdx().x
-    index_j = (blockIdx().y-1)*blockDim().y + threadIdx().y
-    index_k = (blockIdx().z-1)*blockDim().z + threadIdx().z
+function accum_joint_probs_sparse!(
+    gamma,
+    coupling_I,
+    coupling_J,
+    coupling_V,
+    ids,
+    offset_x,
+    N_x,
+    offset_y,
+    N_y,
+)
+    index_i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    index_j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    index_k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
     stride_i = gridDim().x * blockDim().x
     stride_j = gridDim().y * blockDim().y
     stride_k = gridDim().z * blockDim().z
@@ -36,7 +52,13 @@ function accum_joint_probs_sparse!(gamma, coupling_I, coupling_J, coupling_V, id
             i_abs = i + offset_x
             j_abs = j + offset_y
             for k = index_k:stride_k:length(coupling_I)
-                @inbounds CUDA.@atomic gamma[i, j, ids[coupling_I[k], i_abs], ids[coupling_J[k], j_abs], ids[coupling_I[k], j_abs]] += coupling_V[k] 
+                @inbounds CUDA.@atomic gamma[
+                    i,
+                    j,
+                    ids[coupling_I[k], i_abs],
+                    ids[coupling_J[k], j_abs],
+                    ids[coupling_I[k], j_abs],
+                ] += coupling_V[k]
             end
         end
     end
@@ -80,7 +102,7 @@ function getcoupling_sparse(i, P, QT, R)
     # return list of (i, j, v) for sparse coupling representation
     pi = R[i, :]
     coupling = QT * (reshape(pi, :, 1) .* P)
-    findnz(sparse(coupling)) 
+    findnz(sparse(coupling))
 end
 
 function conditional_mutual_information(joint_probs)
@@ -97,7 +119,7 @@ end
 Create joint distribution cache for all pairs of `1:N_genes`.
 """
 function get_joint_cache(N_genes, discret_max_size)
-    CUDA.fill(0f0, N_genes, N_genes, fill(discret_max_size, 3)...); 
+    CUDA.fill(0.0f0, N_genes, N_genes, fill(discret_max_size, 3)...)
 end
 
 """
@@ -106,7 +128,7 @@ end
 Create joint distribution cache for `N_x` regulators and `N_y` targets. 
 """
 function get_joint_cache(N_x, N_y, discret_max_size)
-    CUDA.fill(0f0, N_x, N_y, fill(discret_max_size, 3)...); 
+    CUDA.fill(0.0f0, N_x, N_y, fill(discret_max_size, 3)...)
 end
 
 """
@@ -116,18 +138,45 @@ Calculate transfer entropy and write to `mi_all` using cache `joint_cache`, with
 `N_x, N_y` and `offset_x, offset_y` are required for GPU compute blocks. See examples for usage. 
 
 """
-function get_MI!(mi_all, joint_cache, coupling_I, coupling_J, coupling_V, N_genes, ids; threads=(8,8,8), blocks=128, offset_x = nothing, N_x = nothing, offset_y = nothing, N_y = nothing)
-    CUDA.fill!(joint_cache, 0f0)
+function get_MI!(
+    mi_all,
+    joint_cache,
+    coupling_I,
+    coupling_J,
+    coupling_V,
+    N_genes,
+    ids;
+    threads = (8, 8, 8),
+    blocks = 128,
+    offset_x = nothing,
+    N_x = nothing,
+    offset_y = nothing,
+    N_y = nothing,
+)
+    CUDA.fill!(joint_cache, 0.0f0)
     offset_x = (offset_x === nothing) ? 0 : offset_x
     offset_y = (offset_y === nothing) ? 0 : offset_y
     N_x = (N_x === nothing) ? size(joint_cache, 1) : N_x
     N_y = (N_y === nothing) ? size(joint_cache, 2) : N_y
     CUDA.@sync begin
-        @cuda threads=threads blocks=blocks accum_joint_probs_sparse!(joint_cache, coupling_I, coupling_J, coupling_V, ids, offset_x, N_x, offset_y, N_y)
+        @cuda threads = threads blocks = blocks accum_joint_probs_sparse!(
+            joint_cache,
+            coupling_I,
+            coupling_J,
+            coupling_V,
+            ids,
+            offset_x,
+            N_x,
+            offset_y,
+            N_y,
+        )
     end
-    idx1=(1+offset_x):(N_x+offset_x)
-    idx2=(1+offset_y):(N_y+offset_y)
-    copy!(view(mi_all, idx1, idx2), conditional_mutual_information(joint_cache[1:N_x, 1:N_y, :, :, :]))
+    idx1 = (1+offset_x):(N_x+offset_x)
+    idx2 = (1+offset_y):(N_y+offset_y)
+    copy!(
+        view(mi_all, idx1, idx2),
+        conditional_mutual_information(joint_cache[1:N_x, 1:N_y, :, :, :]),
+    )
     # copy!(mi_all, conditional_mutual_information(joint_cache))
 end
 
@@ -138,18 +187,43 @@ Calculate transfer entropy and write to `mi_all` using cache `joint_cache`, with
 `N_x, N_y` and `offset_x, offset_y` are required for GPU compute blocks. See examples for usage. 
 
 """
-function get_MI!(mi_all, joint_cache, coupling, N_genes, ids0, ids1; threads=(8,8,8), blocks=128, offset_x = nothing, N_x = nothing, offset_y = nothing, N_y = nothing)
-    CUDA.fill!(joint_cache, 0f0)
+function get_MI!(
+    mi_all,
+    joint_cache,
+    coupling,
+    N_genes,
+    ids0,
+    ids1;
+    threads = (8, 8, 8),
+    blocks = 128,
+    offset_x = nothing,
+    N_x = nothing,
+    offset_y = nothing,
+    N_y = nothing,
+)
+    CUDA.fill!(joint_cache, 0.0f0)
     offset_x = (offset_x === nothing) ? 0 : offset_x
     offset_y = (offset_y === nothing) ? 0 : offset_y
     N_x = (N_x === nothing) ? size(joint_cache, 1) : N_x
     N_y = (N_y === nothing) ? size(joint_cache, 2) : N_y
     CUDA.@sync begin
-        @cuda threads=threads blocks=blocks accum_joint_probs_dense!(joint_cache, coupling, ids0, ids1, offset_x, N_x, offset_y, N_y)
+        @cuda threads = threads blocks = blocks accum_joint_probs_dense!(
+            joint_cache,
+            coupling,
+            ids0,
+            ids1,
+            offset_x,
+            N_x,
+            offset_y,
+            N_y,
+        )
     end
-    idx1=(1+offset_x):(N_x+offset_x)
-    idx2=(1+offset_y):(N_y+offset_y)
-    copy!(view(mi_all, idx1, idx2), conditional_mutual_information(joint_cache[1:N_x, 1:N_y, :, :, :]))
+    idx1 = (1+offset_x):(N_x+offset_x)
+    idx2 = (1+offset_y):(N_y+offset_y)
+    copy!(
+        view(mi_all, idx1, idx2),
+        conditional_mutual_information(joint_cache[1:N_x, 1:N_y, :, :, :]),
+    )
 end
 
 """
