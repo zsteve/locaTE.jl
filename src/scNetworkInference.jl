@@ -36,7 +36,7 @@ export fitnmf, fitntf
 export get_MI!, get_joint_cache, getcoupling_dense, getcoupling, getcoupling_sparse
 
 function __init__()
-    return copy!(tl_decomp, pyimport("tensorly.decomposition"))
+    return copy!(tl_decomp, pyimport_conda("tensorly.decomposition", "tensorly"))
 end
 
 end # module

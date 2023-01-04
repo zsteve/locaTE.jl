@@ -1,7 +1,7 @@
 name = "scNetworkInference"
 uuid = "d47a2e43-82e6-47ba-a340-eddb77145d33"
 authors = ["Stephen Zhang <syz@syz.id.au>"]
-version = "0.2.3"
+version = "0.2.4"
 
 [deps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
