@@ -94,7 +94,7 @@ disc = scN.discretizations_bulk(X; alg = alg);
 using Base.Threads
 @info "Directed inference"
 mi_all = zeros(size(X, 1), size(X, 2)^2);
-@info "Computing RDI scores"
+@info "Computing TE scores"
 @threads for i = 1:size(X, 1)
     mi_all[i, :] = scN.get_MI(
         X,
