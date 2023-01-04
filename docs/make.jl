@@ -38,15 +38,15 @@ isempty(processes) || success(processes) || error("some examples were not run su
 
 ### Build documentation
 using Documenter
-using scNetworkInference
+using locaTE 
 
 makedocs(;
-    modules = [scNetworkInference],
-    repo = "https://github.com/zsteve/scNetworkInference.jl/blob/{commit}{path}#L{line}",
-    sitename = "scNetworkInference.jl",
+    modules = [locaTE],
+    repo = "https://github.com/zsteve/locaTE.jl/blob/{commit}{path}#L{line}",
+    sitename = "locaTE.jl",
     format = Documenter.HTML(;
         prettyurls = get(ENV, "CI", "false") == "true",
-        canonical = "https://zsteve.github.io/scNetworkInference.jl",
+        canonical = "https://zsteve.github.io/locaTE.jl",
         assets = String[],
     ),
     pages = [
@@ -60,4 +60,4 @@ makedocs(;
     checkdocs = :exports,
 )
 
-deploydocs(; repo = "github.com/zsteve/scNetworkInference.jl", push_preview = true)
+deploydocs(; repo = "github.com/zsteve/locaTE.jl", push_preview = true)

@@ -30,7 +30,7 @@ using GraphSignals
 using NearestNeighbors
 using ProgressMeter
 using Discretizers
-import scNetworkInference as scN;
+import locaTE as lTE;
 using Suppressor
 using CSV, DataFrames
 using Printf
@@ -120,7 +120,7 @@ Discretization
 
 ````julia
 alg = DiscretizeBayesianBlocks()
-disc = scN.discretizations_bulk(X; alg = alg);
+disc = lTE.discretizations_bulk(X; alg = alg);
 ````
 
 ## Perform directed inference using CPU
@@ -131,9 +131,9 @@ using Base.Threads
 mi_all = zeros(size(X, 1), size(X, 2)^2);
 @info "Computing TE scores"
 @threads for i = 1:size(X, 1)
-    mi_all[i, :] = scN.get_MI(
+    mi_all[i, :] = lTE.get_MI(
         X,
-        scN.compute_coupling(X, i, P_sp, QT_sp, R_sp),
+        lTE.compute_coupling(X, i, P_sp, QT_sp, R_sp),
         gene_idxs[:, 1],
         gene_idxs[:, 2];
         disc = disc,
@@ -147,10 +147,10 @@ Do some setup first (create joint distribution cache, convert expression values 
 
 ````julia
 using CUDA
-disc_max_size = maximum(map(x -> length(x[1])-1, disc))
+disc_max_size = maximum(map(x -> length(x[1]) - 1, disc))
 N_blocks = 1
-joint_cache = scN.get_joint_cache(size(X, 2) ÷ N_blocks, disc_max_size);
-ids_cu = hcat(map(x -> x[2], disc) ...) |> cu;
+joint_cache = lTE.get_joint_cache(size(X, 2) ÷ N_blocks, disc_max_size);
+ids_cu = hcat(map(x -> x[2], disc)...) |> cu;
 ````
 
 Copy transition matrices and neighbourhood kernel to CUDA device
@@ -166,9 +166,20 @@ Estimate TE using GPU
 ````julia
 mi_all_gpu = zeros(Float32, size(X, 1), size(X, 2), size(X, 2)) |> cu
 for i = 1:size(X, 1)
-    gamma, idx0, idx1 = scN.getcoupling_dense_trimmed(i, P_cu, QT_cu, R_cu)
-    for ((N_x, N_y), (offset_x, offset_y)) in scN.getblocks(size(X, 2), N_blocks, N_blocks)
-        scN.get_MI!(view(mi_all_gpu, i, :, :), joint_cache, gamma, size(X, 2), ids_cu[idx0, :], ids_cu[idx1, :]; offset_x = offset_x, N_x = N_x, offset_y = offset_y, N_y = N_y)
+    gamma, idx0, idx1 = lTE.getcoupling_dense_trimmed(i, P_cu, QT_cu, R_cu)
+    for ((N_x, N_y), (offset_x, offset_y)) in lTE.getblocks(size(X, 2), N_blocks, N_blocks)
+        lTE.get_MI!(
+            view(mi_all_gpu, i, :, :),
+            joint_cache,
+            gamma,
+            size(X, 2),
+            ids_cu[idx0, :],
+            ids_cu[idx1, :];
+            offset_x = offset_x,
+            N_x = N_x,
+            offset_y = offset_y,
+            N_y = N_y,
+        )
     end
 end
 ````
@@ -182,18 +193,18 @@ mi_all = reshape(Array(mi_all_gpu), size(X, 1), :);
 CLR filtering
 
 ````julia
-mi_all_clr = scN.apply_wclr(mi_all, size(X, 2))
+mi_all_clr = lTE.apply_wclr(mi_all, size(X, 2))
 mi_all_clr[isnan.(mi_all_clr)] .= 0
 @info "Denoising"
 w = vec(sqrt.(sum(mi_all_clr .^ 2; dims = 2)))
 w /= sum(w)
-G = @suppress scN.fitsp(mi_all_clr, L; λ1 = 10.0, λ2 = 0.001, maxiter = 100);
+G = @suppress lTE.fitsp(mi_all_clr, L; λ1 = 10.0, λ2 = 0.001, maxiter = 100);
 ````
 
 ````
 [ Info: Denoising
-[ Info: ΔX = 8.978618188899086e-7, ΔZ = 0.00013196736556553637, ΔW = 0.00014698720428814316
-[ Info: tr(X'LX) = 2.5787100213084706, 0.5|X-G|^2 = 6.00988200223708, |X|1 = 6626.338789642901
+[ Info: ΔX = 8.978563211229805e-7, ΔZ = 0.0001318133470150397, ΔW = 0.00014699597421765492
+[ Info: tr(X'LX) = 2.5787097691975194, 0.5|X-G|^2 = 6.009881625779444, |X|1 = 6626.338683050246
 
 ````
 
@@ -334,7 +345,7 @@ plot(plt1, plt2)
 qnorm(x, q) = x ./ quantile(vec(x), q)
 Cg = cor(X) .^ 2;
 Cg[diagind(Cg)] .= 0;
-U, V, trace = @suppress scN.fitnmf(
+U, V, trace = @suppress lTE.fitnmf(
     relu.(qnorm(mi_all_clr, 0.9)),
     [I(size(G, 1)), I(size(G, 2))],
     1e-3 * I + L,
@@ -375,9 +386,13 @@ try
     pygam = pyimport_conda("pygam", "pygam")
     #r fit a GAM for each set of coefficients
     coeff_gam = [pygam.LinearGAM(pygam.s(0)).fit(dpt, u) for u in eachcol(U)]
-    U_gam = hcat([g.predict(dpt) for g in coeff_gam]...);
-    perm = sortperm(vec(sum((U ./ sum(U; dims = 1)) .* dpt; dims = 1)));
-    heatmap(U_gam[sortperm(dpt), perm]', xlabel = "pseudotime", ylabel = "Regulatory module")
+    U_gam = hcat([g.predict(dpt) for g in coeff_gam]...)
+    perm = sortperm(vec(sum((U ./ sum(U; dims = 1)) .* dpt; dims = 1)))
+    heatmap(
+        U_gam[sortperm(dpt), perm]',
+        xlabel = "pseudotime",
+        ylabel = "Regulatory module",
+    )
 catch e
 end
 ````

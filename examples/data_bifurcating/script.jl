@@ -1,7 +1,7 @@
 # # Bifurcating example
 #
 # ## Loading required packages
-# Load scNetworkInference.jl and other required packages
+# Load locaTE.jl and other required packages
 using NPZ
 using NNlib
 using OptimalTransport
@@ -15,7 +15,7 @@ using GraphSignals
 using NearestNeighbors
 using ProgressMeter
 using Discretizers
-import scNetworkInference as scN;
+import locaTE as lTE;
 using Suppressor
 
 # ## Load expression values from BoolODE simulation output.
@@ -83,11 +83,11 @@ using Base.Threads
 mi_all = zeros(size(X, 1), size(X, 2)^2);
 @info "Computing TE scores"
 alg = DiscretizeBayesianBlocks()
-disc = scN.discretizations_bulk(X; alg = alg)
+disc = lTE.discretizations_bulk(X; alg = alg)
 @threads for i = 1:size(X, 1)
-    mi_all[i, :] = scN.get_MI(
+    mi_all[i, :] = lTE.get_MI(
         X,
-        scN.compute_coupling(X, i, P_sp, QT_sp, R_sp),
+        lTE.compute_coupling(X, i, P_sp, QT_sp, R_sp),
         gene_idxs[:, 1],
         gene_idxs[:, 2];
         disc = disc,
@@ -95,14 +95,14 @@ disc = scN.discretizations_bulk(X; alg = alg)
     )
 end
 @info "Applying CLR"
-mi_all_clr = scN.apply_wclr(mi_all, size(X, 2))
+mi_all_clr = lTE.apply_wclr(mi_all, size(X, 2))
 mi_all_clr[isnan.(mi_all_clr)] .= 0;
 
 # ## Denoise using graph-regularized regression
 @info "Denoising"
 w = normalize(vec(sqrt.(sum(mi_all_clr .^ 2; dims = 2))), 1) # weights (optional)
-G = @suppress scN.fitsp(mi_all_clr, L; λ1 = 25.0, λ2 = 0.001, maxiter = 500);
-G_symm = scN.symm_row(G, size(X, 2)); # symmetrized version for comparison to undirected methods
+G = @suppress lTE.fitsp(mi_all_clr, L; λ1 = 25.0, λ2 = 0.001, maxiter = 500);
+G_symm = lTE.symm_row(G, size(X, 2)); # symmetrized version for comparison to undirected methods
 # we can plot the TE density
 scatter(
     X_tsne[:, 1],
@@ -190,7 +190,7 @@ plt
 qnorm(x, q) = x ./ quantile(vec(x), q)
 Cg = cor(X) .^ 2;
 Cg[diagind(Cg)] .= 0;
-U, V, trace = @suppress scN.fitnmf(
+U, V, trace = @suppress lTE.fitnmf(
     relu.(qnorm(mi_all_clr, 0.9)),
     [I(size(G, 1)), I(size(G, 2))],
     1e-3 * I + L,
@@ -240,7 +240,7 @@ plot(plt1, plt2)
 using TensorToolbox
 Cg = cor(X) .^ 2;
 Cg[diagind(Cg)] .= 0;
-S, A, trace = @suppress scN.fitntf(
+S, A, trace = @suppress lTE.fitntf(
     Array(reshape(qnorm(mi_all_clr, 0.9), :, size(X, 2), size(X, 2))),
     [I(size(X, 1)), I(size(X, 2)), I(size(X, 2))],
     1e-3 * I + L,

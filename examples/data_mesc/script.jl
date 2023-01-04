@@ -15,7 +15,7 @@ using GraphSignals
 using NearestNeighbors
 using ProgressMeter
 using Discretizers
-import scNetworkInference as scN;
+import locaTE as lTE;
 using Suppressor
 using CSV, DataFrames
 using Printf
@@ -88,7 +88,7 @@ end
 L = sparse(normalized_laplacian(max.(A, A'), Float64));
 # Discretization
 alg = DiscretizeBayesianBlocks()
-disc = scN.discretizations_bulk(X; alg = alg);
+disc = lTE.discretizations_bulk(X; alg = alg);
 
 # ## Perform directed inference using CPU
 # Uncomment to run on CPU. We demonstrate GPU acceleration below.
@@ -98,9 +98,9 @@ disc = scN.discretizations_bulk(X; alg = alg);
 # mi_all = zeros(size(X, 1), size(X, 2)^2);
 # @info "Computing TE scores"
 # @threads for i = 1:size(X, 1)
-#     mi_all[i, :] = scN.get_MI(
+#     mi_all[i, :] = lTE.get_MI(
 #         X,
-#         scN.compute_coupling(X, i, P_sp, QT_sp, R_sp),
+#         lTE.compute_coupling(X, i, P_sp, QT_sp, R_sp),
 #         gene_idxs[:, 1],
 #         gene_idxs[:, 2];
 #         disc = disc,
@@ -114,7 +114,7 @@ disc = scN.discretizations_bulk(X; alg = alg);
 using CUDA
 disc_max_size = maximum(map(x -> length(x[1]) - 1, disc))
 N_blocks = 1
-joint_cache = scN.get_joint_cache(size(X, 2) ÷ N_blocks, disc_max_size);
+joint_cache = lTE.get_joint_cache(size(X, 2) ÷ N_blocks, disc_max_size);
 ids_cu = hcat(map(x -> x[2], disc)...) |> cu;
 # Copy transition matrices and neighbourhood kernel to CUDA device
 P_cu = cu(Array(P_sp))
@@ -123,9 +123,9 @@ R_cu = cu(Array(R_sp));
 # Estimate TE using GPU 
 mi_all_gpu = zeros(Float32, size(X, 1), size(X, 2), size(X, 2)) |> cu
 for i = 1:size(X, 1)
-    gamma, idx0, idx1 = scN.getcoupling_dense_trimmed(i, P_cu, QT_cu, R_cu)
-    for ((N_x, N_y), (offset_x, offset_y)) in scN.getblocks(size(X, 2), N_blocks, N_blocks)
-        scN.get_MI!(
+    gamma, idx0, idx1 = lTE.getcoupling_dense_trimmed(i, P_cu, QT_cu, R_cu)
+    for ((N_x, N_y), (offset_x, offset_y)) in lTE.getblocks(size(X, 2), N_blocks, N_blocks)
+        lTE.get_MI!(
             view(mi_all_gpu, i, :, :),
             joint_cache,
             gamma,
@@ -143,12 +143,12 @@ end
 mi_all = reshape(Array(mi_all_gpu), size(X, 1), :);
 
 # CLR filtering
-mi_all_clr = scN.apply_wclr(mi_all, size(X, 2))
+mi_all_clr = lTE.apply_wclr(mi_all, size(X, 2))
 mi_all_clr[isnan.(mi_all_clr)] .= 0
 @info "Denoising"
 w = vec(sqrt.(sum(mi_all_clr .^ 2; dims = 2)))
 w /= sum(w)
-G = @suppress scN.fitsp(mi_all_clr, L; λ1 = 10.0, λ2 = 0.001, maxiter = 100);
+G = @suppress lTE.fitsp(mi_all_clr, L; λ1 = 10.0, λ2 = 0.001, maxiter = 100);
 
 # To get a static network, aggregate over dpt < 0.9
 agg_fun = x -> mean(x[dpt.<0.9, :]; dims = 1)
@@ -261,7 +261,7 @@ plot(plt1, plt2)
 qnorm(x, q) = x ./ quantile(vec(x), q)
 Cg = cor(X) .^ 2;
 Cg[diagind(Cg)] .= 0;
-U, V, trace = @suppress scN.fitnmf(
+U, V, trace = @suppress lTE.fitnmf(
     relu.(qnorm(mi_all_clr, 0.9)),
     [I(size(G, 1)), I(size(G, 2))],
     1e-3 * I + L,
