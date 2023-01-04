@@ -249,7 +249,7 @@ V ./= mean(V; dims = 1);
 
 # Plot coefficients
 using PyCall
-pygam = pyimport("pygam")
+pygam = pyimport_conda("pygam", "pygam")
 #r fit a GAM for each set of coefficients
 coeff_gam = [pygam.LinearGAM(pygam.s(0)).fit(dpt, u) for u in eachcol(U)]
 U_gam = hcat([g.predict(dpt) for g in coeff_gam]...);

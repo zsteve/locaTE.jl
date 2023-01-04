@@ -78,12 +78,13 @@ end
 L = sparse(normalized_laplacian(max.(A, A'), Float64));
 
 # ## Perform directed inference
+using Base.Threads
 @info "Directed inference"
 mi_all = zeros(size(X, 1), size(X, 2)^2);
 @info "Computing TE scores"
 alg = DiscretizeBayesianBlocks()
 disc = scN.discretizations_bulk(X; alg = alg)
-for i = 1:size(X, 1)
+@threads for i = 1:size(X, 1)
     mi_all[i, :] = scN.get_MI(
         X,
         scN.compute_coupling(X, i, P_sp, QT_sp, R_sp),

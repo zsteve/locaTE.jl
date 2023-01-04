@@ -1,5 +1,6 @@
 [deps]
 Discretizers = "6e83dbb3-75ca-525b-8ae2-3751f0dd50b4"
+EvalMetrics = "251d5f9e-10c1-4699-ba24-e0ad168fa3e4"
 GraphSignals = "3ebe565e-a4b5-49c6-aed2-300248c3a9c1"
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
