@@ -10,6 +10,12 @@ function discretization(x::AbstractVector; alg = DiscretizeUniformWidth(:scott))
     end
 end
 
+"""
+    discretizations_bulk(X::AbstractMatrix; alg = DiscretizeBayesianBlocks())
+
+Discretize each column of `X` using algorithm `alg`. 
+
+"""
 function discretizations_bulk(X::AbstractMatrix; alg = DiscretizeBayesianBlocks())
     binedges_all = [binedges(alg, x) for x in eachcol(X)]
     discretizers_all = map(LinearDiscretizer, binedges_all)

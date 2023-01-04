@@ -43,12 +43,24 @@ function accum_joint_probs_sparse!(gamma, coupling_I, coupling_J, coupling_V, id
     return nothing
 end
 
+"""
+    getcoupling_dense(i, P, QT, R)
+
+Get dense coupling for cell `i`, forward transition matrix `P`, transposed backward transition matrix `QT` and neighbourhood kernel `R`.
+"""
 function getcoupling_dense(i, P, QT, R)
     # full coupling
     pi = R[i, :]
     QT * (reshape(pi, :, 1) .* P)
 end
 
+"""
+    getcoupling_dense_trimmed(i, P, QT, R)
+
+Get "trimmed" (i.e. removed zero rows and cols) dense coupling for cell `i`, forward transition matrix `P`, transposed backward transition matrix `QT` and neighbourhood kernel `R`.
+Returns the trimmed dense coupling, along with `row_idxs` and `col_idxs`.
+
+"""
 function getcoupling_dense_trimmed(i, P, QT, R)
     # full coupling but remove empty rows/cols
     pi = R[i, :]
@@ -58,6 +70,12 @@ function getcoupling_dense_trimmed(i, P, QT, R)
     return coupling[row_idxs, col_idxs], row_idxs, col_idxs
 end
 
+"""
+    getcoupling_sparse(i, P, QT, R)
+
+Get sparse coupling for cell `i`, forward transition matrix `P`, transposed backward transition matrix `QT` and neighbourhood kernel `R`.
+
+"""
 function getcoupling_sparse(i, P, QT, R)
     # return list of (i, j, v) for sparse coupling representation
     pi = R[i, :]
@@ -73,14 +91,31 @@ function conditional_mutual_information(joint_probs)
     -H_xz - H_yz + H_xyz + H_z
 end
 
+"""
+    get_joint_cache(N_genes, discret_max_size)
+
+Create joint distribution cache for all pairs of `1:N_genes`.
+"""
 function get_joint_cache(N_genes, discret_max_size)
     CUDA.fill(0f0, N_genes, N_genes, fill(discret_max_size, 3)...); 
 end
 
+"""
+    get_joint_cache(N_x, N_y, discret_max_size)
+
+Create joint distribution cache for `N_x` regulators and `N_y` targets. 
+"""
 function get_joint_cache(N_x, N_y, discret_max_size)
     CUDA.fill(0f0, N_x, N_y, fill(discret_max_size, 3)...); 
 end
 
+"""
+    get_MI!(mi_all, joint_cache, coupling_I, coupling_J, coupling_V, N_genes, ids; threads=(8,8,8), blocks=128, offset_x = nothing, N_x = nothing, offset_y = nothing, N_y = nothing)
+
+Calculate transfer entropy and write to `mi_all` using cache `joint_cache`, with sparse (i,j,v) representation of coupling `(coupling_I, coupling_J, coupling_V)` for `N_genes`.
+`N_x, N_y` and `offset_x, offset_y` are required for GPU compute blocks. See examples for usage. 
+
+"""
 function get_MI!(mi_all, joint_cache, coupling_I, coupling_J, coupling_V, N_genes, ids; threads=(8,8,8), blocks=128, offset_x = nothing, N_x = nothing, offset_y = nothing, N_y = nothing)
     CUDA.fill!(joint_cache, 0f0)
     offset_x = (offset_x === nothing) ? 0 : offset_x
@@ -96,6 +131,13 @@ function get_MI!(mi_all, joint_cache, coupling_I, coupling_J, coupling_V, N_gene
     # copy!(mi_all, conditional_mutual_information(joint_cache))
 end
 
+"""
+    get_MI!(mi_all, joint_cache, coupling, N_genes, ids0, ids1; threads=(8,8,8), blocks=128, offset_x = nothing, N_x = nothing, offset_y = nothing, N_y = nothing)
+
+Calculate transfer entropy and write to `mi_all` using cache `joint_cache`, with dense coupling for `N_genes`.
+`N_x, N_y` and `offset_x, offset_y` are required for GPU compute blocks. See examples for usage. 
+
+"""
 function get_MI!(mi_all, joint_cache, coupling, N_genes, ids0, ids1; threads=(8,8,8), blocks=128, offset_x = nothing, N_x = nothing, offset_y = nothing, N_y = nothing)
     CUDA.fill!(joint_cache, 0f0)
     offset_x = (offset_x === nothing) ? 0 : offset_x
@@ -110,6 +152,12 @@ function get_MI!(mi_all, joint_cache, coupling, N_genes, ids0, ids1; threads=(8,
     copy!(view(mi_all, idx1, idx2), conditional_mutual_information(joint_cache[1:N_x, 1:N_y, :, :, :]))
 end
 
+"""
+    getblocks(N_genes, blocks_x, blocks_y)
+
+For `(N_genes, N_genes)` TE calculation tasks, get `(N_x, N_y), (offset_x, offset_y))` for splitting into `(blocks_x, blocks_y)` threads.
+
+"""
 function getblocks(N_genes, blocks_x, blocks_y)
     quot_x, rem_x = N_genes ÷ blocks_x, N_genes % blocks_x
     N_x = fill(quot_x, blocks_x)

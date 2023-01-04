@@ -1,5 +1,21 @@
+"""
+    prox_l1(x, λ)
+
+Proximal operator for the L1 norm with weight `λ`, ``x \\mapsto λ\\|x\\|_1``. 
+
+"""
 prox_l1(x, λ) = sign(x)*relu(abs(x) - λ)
 
+"""
+    fitsp(G::AbstractMatrix, L::AbstractMatrix, α; ρ = 0.05, λ1 = 25.0, λ2 = 0.075, maxiter = 2500)
+
+Denoise TE scores by solving the *weighted* L1-L2 regularized regression problem
+
+```math
+        \\min_{X} \\frac{1}{2} \\sum_{i = 1}^{N} \\alpha_{i} \\| X_i - G_i \\|_2^2 + \\frac{λ_1}{2} \\operatorname{tr}(X^\\top L X) + λ_2 \\sum_{i = 1}^N \\alpha_i \\| X_i \\|_1.
+```
+
+"""
 function fitsp(G::AbstractMatrix, L::AbstractMatrix, α; ρ = 0.05, λ1 = 25.0, λ2 = 0.075, maxiter = 2500)
     # scaling factors
     L_scaled = sqrt.(α) * L * sqrt.(α)
@@ -18,7 +34,7 @@ function fitsp(G::AbstractMatrix, L::AbstractMatrix, α; ρ = 0.05, λ1 = 25.0, 
         #     # Z_new = hcat([prox_l1.(X_new[i, :]+W[i, :], λ2*diag(α)[i]/ρ) for i = 1:size(L, 1)]...)';
         #     Z_new[i, :] .= prox_l1.(X_new[i, :]+W[i, :], λ2*diag(α)[i]/ρ)
         # end
-	Z_new .= prox_l1.(X_new + W, λ2*diag(α)/ρ)
+        Z_new .= prox_l1.(X_new + W, λ2*diag(α)/ρ)
         W_new = W + X_new - Z_new
         ΔX, ΔZ, ΔW = norm(X-X_new, Inf), norm(Z-Z_new, Inf), norm(W-W_new, Inf)
         copy!(X, X_new); copy!(Z, Z_new); copy!(W, W_new)
@@ -28,6 +44,16 @@ function fitsp(G::AbstractMatrix, L::AbstractMatrix, α; ρ = 0.05, λ1 = 25.0, 
     Z
 end
 
+"""
+    fitsp(G::AbstractMatrix, L::AbstractMatrix; ρ = 0.05, λ1 = 25.0, λ2 = 0.075, maxiter = 2500)
+
+Denoise TE scores by solving the L1-L2 regularized regression problem
+
+```math
+        \\min_{X} \\frac{1}{2} \\sum_{i = 1}^{N} \\| X_i - G_i \\|_2^2 + \\frac{λ_1}{2} \\operatorname{tr}(X^\\top L X) + λ_2 \\sum_{i = 1}^N \\| X_i \\|_1.
+```
+
+"""
 function fitsp(G::AbstractMatrix, L::AbstractMatrix; ρ = 0.05, λ1 = 25.0, λ2 = 0.075, maxiter = 2500)
     # scaling factors
     X = similar(G);
@@ -48,31 +74,21 @@ function fitsp(G::AbstractMatrix, L::AbstractMatrix; ρ = 0.05, λ1 = 25.0, λ2 
     Z
 end
 
+"""
+    fitnmf(G, L_all, L, H, k; α = 0, β = 0, λ = [0, 0], μ = [0, 0], iter = 500, print_iter = 50, initialize = :nndsvd, δ = 1e-5, dictionary = false, η = 1.0, U_init = nothing, V_init = nothing)
 
-function fitsp_mean(G; ρ = 0.01, λ = 0.001, maxiter = 100)
-    x = similar(G, size(G, 1))
-    x_new = similar(x)
-    z = similar(G, size(G, 1))
-    z_new = similar(z)
-    w = similar(G, size(G, 1))
-    w_new = similar(w)
-    fill!(x, 0)
-    fill!(z, 0)
-    fill!(w, 0)
-    Δx, Δz, Δw = 0, 0, 0
-    @showprogress for iter = 1:maxiter
-        x_new =  (mean(G; dims = 2) + ρ*(z-w))/(1+ρ)
-        z_new = prox_l1.(x_new + w, λ = λ/ρ)
-        w_new = w + x_new - z_new
-        Δx, Δz, Δw = norm(x-x_new, Inf), norm(z-z_new, Inf), norm(w-w_new, Inf)
-        copy!(z, x_new)
-        copy!(x, x_new)
-        copy!(w, w_new)
-    end
-    @info "Δx = $(Δx), Δz = $(Δz), Δw = $(Δw)"
-    x
-end
+Regularized non-negative matrix factorization by solving the problem
 
+```math
+    \\min_{U, V} \\frac{1}{2} \\| UV^\\top - G \\|_2^2 + \\frac{α}{2} \\operatorname{tr}(VU^\\top L UV^\\top) - \\beta \\langle H, UV^\\top \\rangle + \\frac{λ_1}{2} \\operatorname{tr}(U^\\top K_1 U) +  μ_1 \\| U \\|_1 + \\frac{λ_2}{2} \\operatorname{tr}(V^\\top K_2 V) + μ_2 \\| V \\|_1.
+```
+
+`L_all` contains positive semidefinite (potentially sparse) matrices corresponding to ``[K_1, K_2]`` that act on the factor matrices, while `L` is a positive semidefinite matrix acting on the low rank reconstruction.
+
+A number of initializations are possible by setting the value of `initialize`: random (`:rand`), nonnegative double singular value decomposition (`:nndsvd`, using the implementation [here](https://github.com/JuliaStats/NMF.jl)), 2 iterations of NMF (`:nmf`, using [this function](https://github.com/JuliaStats/NMF.jl)), or manual initialization `U_init, V_init` (`:manual`).
+
+Returns `U, V` and `trace` containing objective values. 
+"""
 function fitnmf(G, L_all, L, H, k; α = 0, β = 0, λ = [0, 0], μ = [0, 0], iter = 500, print_iter = 50, initialize = :nndsvd, δ = 1e-5, dictionary = false, η = 1.0, U_init = nothing, V_init = nothing)
     # use multiplicative updates
     U = similar(G, size(G, 1), k)
@@ -142,6 +158,22 @@ function fitnmf(G, L_all, L, H, k; α = 0, β = 0, λ = [0, 0], μ = [0, 0], ite
     U, V, trace
 end
 
+"""
+    fitntf(G, L, L_g, H, λ, μ, α, β, k; iter = 250, print_iter = 50, dictionary = false, δ = 1e-5, η = 1.0)
+
+Regularized non-negative tensor factorization by solving the problem
+
+```math
+    \\min_{S, \\{ A^{(i)} \\}_{i = 1}^3} \\frac{1}{2} \\| X - G\\|_2^2 + \\frac{\\alpha}{2} \\operatorname{tr}(X_{(1)}^\\top L X_{(1)}) - \\beta \\langle H, X\\rangle + \\sum_{i = 1}^3 \\frac{\\lambda_i}{2} \\operatorname{tr}((A^{(i)})^\\top L^{(i)} A^{(i)}) + \\sum_{i = 1}^3 \\mu_i \\| A^{(i)} \\|_1. 
+```
+where for brevity ``X = S \\times_{i = 1}^3 A^{(i)}``. 
+
+`L` contains positive semidefinite (potentially sparse) matrices corresponding to ``L^{(i)}`` in the above formula that act on the factor matrices, and `L_g` corresponds to `L`, acting on the low rank reconstruction.
+
+The decomposition is currently initialised using the [Tensorly](http://tensorly.org/) library, with 1 iteration of `non_negative_parafac` with `init = "svd"`.
+
+Currently only optimises over the factor matrices while keeping `S` fixed (i.e. seeks a CP decomposition)
+"""
 function fitntf(G, L, L_g, H, λ, μ, α, β, k; iter = 250, print_iter = 50, dictionary = false, δ = 1e-5, η = 1.0)
     tocu = (G isa CuArray ? CuArray : x -> x) 
     tocpu = (G isa CuArray ? Array : x -> x)
@@ -189,8 +221,8 @@ function fitntf(G, L, L_g, H, λ, μ, α, β, k; iter = 250, print_iter = 50, di
             if i == 1
                 A_new[i] .= relu.(A[i] .* (tenmat(G, i) * Bi' + λ[i]*W[i]*A[i] + α*W_g*A[i]*Bi*Bi' + β*tenmat(H, i)*Bi') ./ (A[i]*Bi*Bi' + λ[i]*D[i]*A[i] + α*D_g*A[i]*Bi*Bi' .+ μ[i] .+ δ))
             else
-		Btilde_plus = tenmat(ttm(S, [Matrix((j == 1 ? D_g : tocu(I)) * A[j]) for j in inds], inds), i)
-		Btilde_minus = tenmat(ttm(S, [Matrix((j == 1 ? W_g : tocu(I)) * A[j]) for j in inds], inds), i)
+                Btilde_plus = tenmat(ttm(S, [Matrix((j == 1 ? D_g : tocu(I)) * A[j]) for j in inds], inds), i)
+                Btilde_minus = tenmat(ttm(S, [Matrix((j == 1 ? W_g : tocu(I)) * A[j]) for j in inds], inds), i)
                 C_plus = (Btilde_plus*Bi' + Bi*Btilde_plus')/2
                 C_minus = (Btilde_minus*Bi' + Bi*Btilde_minus')/2
                 A_new[i] .= relu.(A[i] .* (tenmat(G, i) * Bi' + λ[i]*W[i]*A[i] + α*A[i]*C_minus + β*tenmat(H, i)*Bi') ./ (A[i]*Bi*Bi' + λ[i]*D[i]*A[i] + α*A[i]*C_plus .+ μ[i] .+ δ))

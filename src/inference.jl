@@ -1,3 +1,9 @@
+"""
+    construct_index_maps(coupling)
+
+Construct index maps for sparse coupling matrices.
+
+"""
 function construct_index_maps(coupling)
     # construct row and col indices/maps
     w_row = sum(coupling; dims = 2)
@@ -15,6 +21,8 @@ end
     get_MI(X::AbstractMatrix, coupling::AbstractSparseMatrix, genes_prev::Vector{Int}, genes_next::Vector{Int}; disc = nothing, kwargs...)
 
 Computes the TE score for all pairs of genes in `genes_prev, genes_next` from cell-by-gene expression matrix `X` under `coupling`.
+A precomputed discretization can be passed as `disc`, otherwise counts will be binned using a call to `discretization` with `kwargs` as named arguments. 
+Returns a vector of TE scores with the same length as `zip(genes_prev, genes_next)`.  
 
 """
 function get_MI(X::AbstractMatrix, coupling::AbstractSparseMatrix, genes_prev::Vector{Int}, genes_next::Vector{Int}; disc = nothing, kwargs...)
@@ -54,16 +62,35 @@ function wCLR(x)
     [0.5*sqrt.(relu(zscore(x[i, :])[j]).^2 + relu(zscore(x[:, j])[i]).^2)*x[i, j] for i = 1:size(x, 1), j = 1:size(x, 2)]
 end
 
+"""
+    compute_coupling(X::AbstractMatrix, i::Int, R::AbstractSparseMatrix)
+
+Compute undirected coupling for cell `i` with neighbourhood kernel `R`. 
+
+"""
 function compute_coupling(X::AbstractMatrix, i::Int, R::AbstractSparseMatrix)
     pi = ((collect(1:size(X, 1)) .== i)'*1.0) * R 
     sparse(reshape(pi, :, 1)) .* R
 end
 
+"""
+
+    compute_coupling(X::AbstractMatrix, i::Int, P::AbstractSparseMatrix, R::AbstractSparseMatrix)
+
+Compute directed coupling for cell `i` with neighbourhood kernel `R` and forward transition matrix `P`.
+
+"""
 function compute_coupling(X::AbstractMatrix, i::Int, P::AbstractSparseMatrix, R::AbstractSparseMatrix)
     pi = ((collect(1:size(X, 1)) .== i)'*1.0) * R 
     sparse(reshape(pi, :, 1)) .* P
 end
 
+"""
+    compute_coupling(X::AbstractMatrix, i::Int, P::AbstractSparseMatrix, QT::AbstractSparseMatrix, R::AbstractSparseMatrix)
+
+Compute directed coupling for cell `i` with neighbourhood kernel `R`, forward transition matrix `P` and (transposed) backward transition matrix `QT`.
+
+"""
 function compute_coupling(X::AbstractMatrix, i::Int, P::AbstractSparseMatrix, QT::AbstractSparseMatrix, R::AbstractSparseMatrix)
     # given: Q a transition matrix t -> t-1; P a transition matrix t -> t+1
     # and π a distribution at time t
@@ -72,5 +99,18 @@ function compute_coupling(X::AbstractMatrix, i::Int, P::AbstractSparseMatrix, QT
     QT * (sparse(reshape(pi, :, 1)) .* P)
 end
 
+"""
+    apply_wclr(A, n_genes)
+
+Apply `wCLR` to an array of flattened interaction matrices, i.e. of dimensions `(n_cells, n_genes^2)`
+
+"""
 apply_wclr(A, n_genes) = hcat(map(x -> vec(wCLR(reshape(x, n_genes, n_genes))), eachrow(A))...)'
+
+"""
+    apply_clr(A, n_genes)
+
+Apply `CLR` to an array of flattened interaction matrices, i.e. of dimensions `(n_cells, n_genes^2)`
+
+"""
 apply_clr(A, n_genes) = hcat(map(x -> vec(CLR(reshape(x, n_genes, n_genes))), eachrow(A))...)'
