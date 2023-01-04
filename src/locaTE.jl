@@ -1,4 +1,4 @@
-module scNetworkInference
+module locaTE
 
 using NNlib
 using StatsBase
