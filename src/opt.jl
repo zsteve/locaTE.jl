@@ -2,7 +2,6 @@
     prox_l1(x, λ)
 
 Proximal operator for the L1 norm with weight `λ`, ``x \\mapsto λ\\|x\\|_1``. 
-
 """
 prox_l1(x, λ) = sign(x) * relu(abs(x) - λ)
 
@@ -10,11 +9,10 @@ prox_l1(x, λ) = sign(x) * relu(abs(x) - λ)
     fitsp(G::AbstractMatrix, L::AbstractMatrix, α; ρ = 0.05, λ1 = 25.0, λ2 = 0.075, maxiter = 2500)
 
 Denoise TE scores by solving the *weighted* L1-L2 regularized regression problem
-
 ```math
-        \\min_{X} \\frac{1}{2} \\sum_{i = 1}^{N} \\alpha_{i} \\| X_i - G_i \\|_2^2 + \\frac{λ_1}{2} \\operatorname{tr}(X^\\top L X) + λ_2 \\sum_{i = 1}^N \\alpha_i \\| X_i \\|_1.
+        \\min_{X} \\frac{1}{2} \\sum_{i = 1}^{N} \\alpha_{i} \\| X_i - G_i \\|_2^2
+        + \\frac{λ_1}{2} \\operatorname{tr}(X^\\top L X) + λ_2 \\sum_{i = 1}^N \\alpha_i \\| X_i \\|_1.
 ```
-
 """
 function fitsp(
     G::AbstractMatrix,
@@ -60,11 +58,10 @@ end
     fitsp(G::AbstractMatrix, L::AbstractMatrix; ρ = 0.05, λ1 = 25.0, λ2 = 0.075, maxiter = 2500)
 
 Denoise TE scores by solving the L1-L2 regularized regression problem
-
 ```math
-        \\min_{X} \\frac{1}{2} \\sum_{i = 1}^{N} \\| X_i - G_i \\|_2^2 + \\frac{λ_1}{2} \\operatorname{tr}(X^\\top L X) + λ_2 \\sum_{i = 1}^N \\| X_i \\|_1.
+        \\min_{X} \\frac{1}{2} \\sum_{i = 1}^{N} \\| X_i - G_i \\|_2^2
+        + \\frac{λ_1}{2} \\operatorname{tr}(X^\\top L X) + λ_2 \\sum_{i = 1}^N \\| X_i \\|_1.
 ```
-
 """
 function fitsp(
     G::AbstractMatrix,
@@ -101,12 +98,18 @@ end
 Regularized non-negative matrix factorization by solving the problem
 
 ```math
-    \\min_{U, V} \\frac{1}{2} \\| UV^\\top - G \\|_2^2 + \\frac{α}{2} \\operatorname{tr}(VU^\\top L UV^\\top) - \\beta \\langle H, UV^\\top \\rangle + \\frac{λ_1}{2} \\operatorname{tr}(U^\\top K_1 U) +  μ_1 \\| U \\|_1 + \\frac{λ_2}{2} \\operatorname{tr}(V^\\top K_2 V) + μ_2 \\| V \\|_1.
+    \\min_{U, V} \\frac{1}{2} \\| UV^\\top - G \\|_2^2 + \\frac{α}{2} \\operatorname{tr}(VU^\\top L UV^\\top)
+        - \\beta \\langle H, UV^\\top \\rangle + \\frac{λ_1}{2} \\operatorname{tr}(U^\\top K_1 U)
+        +  μ_1 \\| U \\|_1 + \\frac{λ_2}{2} \\operatorname{tr}(V^\\top K_2 V) + μ_2 \\| V \\|_1.
 ```
 
-`L_all` contains positive semidefinite (potentially sparse) matrices corresponding to ``[K_1, K_2]`` that act on the factor matrices, while `L` is a positive semidefinite matrix acting on the low rank reconstruction.
+`L_all` contains positive semidefinite (potentially sparse) matrices corresponding to ``[K_1, K_2]`` that act on the factor matrices,
+while `L` is a positive semidefinite matrix acting on the low rank reconstruction.
 
-A number of initializations are possible by setting the value of `initialize`: random (`:rand`), nonnegative double singular value decomposition (`:nndsvd`, using the implementation [here](https://github.com/JuliaStats/NMF.jl)), 2 iterations of NMF (`:nmf`, using [this function](https://github.com/JuliaStats/NMF.jl)), or manual initialization `U_init, V_init` (`:manual`).
+A number of initializations are possible by setting the value of `initialize`: random (`:rand`),
+nonnegative double singular value decomposition (`:nndsvd`, using the implementation [here](https://github.com/JuliaStats/NMF.jl)),
+2 iterations of NMF (`:nmf`, using [this function](https://github.com/JuliaStats/NMF.jl)),
+or manual initialization `U_init, V_init` (`:manual`).
 
 Returns `U, V` and `trace` containing objective values. 
 """
@@ -209,11 +212,14 @@ end
 Regularized non-negative tensor factorization by solving the problem
 
 ```math
-    \\min_{S, \\{ A^{(i)} \\}_{i = 1}^3} \\frac{1}{2} \\| X - G\\|_2^2 + \\frac{\\alpha}{2} \\operatorname{tr}(X_{(1)}^\\top L X_{(1)}) - \\beta \\langle H, X\\rangle + \\sum_{i = 1}^3 \\frac{\\lambda_i}{2} \\operatorname{tr}((A^{(i)})^\\top L^{(i)} A^{(i)}) + \\sum_{i = 1}^3 \\mu_i \\| A^{(i)} \\|_1. 
+    \\min_{S, \\{ A^{(i)} \\}_{i = 1}^3} \\frac{1}{2} \\| X - G\\|_2^2 + \\frac{\\alpha}{2} \\operatorname{tr}(X_{(1)}^\\top L X_{(1)})
+        - \\beta \\langle H, X\\rangle + \\sum_{i = 1}^3 \\frac{\\lambda_i}{2} \\operatorname{tr}((A^{(i)})^\\top L^{(i)} A^{(i)})
+        + \\sum_{i = 1}^3 \\mu_i \\| A^{(i)} \\|_1. 
 ```
 where for brevity ``X = S \\times_{i = 1}^3 A^{(i)}``. 
 
-`L` contains positive semidefinite (potentially sparse) matrices corresponding to ``L^{(i)}`` in the above formula that act on the factor matrices, and `L_g` corresponds to `L`, acting on the low rank reconstruction.
+`L` contains positive semidefinite (potentially sparse) matrices corresponding to ``L^{(i)}`` in the above formula that act on the factor matrices,
+and `L_g` corresponds to `L`, acting on the low rank reconstruction.
 
 The decomposition is currently initialised using the [Tensorly](http://tensorly.org/) library, with 1 iteration of `non_negative_parafac` with `init = "svd"`.
 

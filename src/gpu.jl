@@ -81,7 +81,6 @@ end
 
 Get "trimmed" (i.e. removed zero rows and cols) dense coupling for cell `i`, forward transition matrix `P`, transposed backward transition matrix `QT` and neighbourhood kernel `R`.
 Returns the trimmed dense coupling, along with `row_idxs` and `col_idxs`.
-
 """
 function getcoupling_dense_trimmed(i, P, QT, R)
     # full coupling but remove empty rows/cols
@@ -96,7 +95,6 @@ end
     getcoupling_sparse(i, P, QT, R)
 
 Get sparse coupling for cell `i`, forward transition matrix `P`, transposed backward transition matrix `QT` and neighbourhood kernel `R`.
-
 """
 function getcoupling_sparse(i, P, QT, R)
     # return list of (i, j, v) for sparse coupling representation
@@ -136,7 +134,6 @@ end
 
 Calculate transfer entropy and write to `mi_all` using cache `joint_cache`, with sparse (i,j,v) representation of coupling `(coupling_I, coupling_J, coupling_V)` for `N_genes`.
 `N_x, N_y` and `offset_x, offset_y` are required for GPU compute blocks. See examples for usage. 
-
 """
 function get_MI!(
     mi_all,
@@ -185,7 +182,6 @@ end
 
 Calculate transfer entropy and write to `mi_all` using cache `joint_cache`, with dense coupling for `N_genes`.
 `N_x, N_y` and `offset_x, offset_y` are required for GPU compute blocks. See examples for usage. 
-
 """
 function get_MI!(
     mi_all,
@@ -230,7 +226,6 @@ end
     getblocks(N_genes, blocks_x, blocks_y)
 
 For `(N_genes, N_genes)` TE calculation tasks, get `(N_x, N_y), (offset_x, offset_y))` for splitting into `(blocks_x, blocks_y)` threads.
-
 """
 function getblocks(N_genes, blocks_x, blocks_y)
     quot_x, rem_x = N_genes ÷ blocks_x, N_genes % blocks_x

@@ -14,7 +14,6 @@ end
     discretizations_bulk(X::AbstractMatrix; alg = DiscretizeBayesianBlocks())
 
 Discretize each column of `X` using algorithm `alg`. 
-
 """
 function discretizations_bulk(X::AbstractMatrix; alg = DiscretizeBayesianBlocks())
     binedges_all = [binedges(alg, x) for x in eachcol(X)]
