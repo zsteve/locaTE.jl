@@ -129,7 +129,7 @@ for i = 1:size(X, 1)
     end
 end
 # Copy back to CPU
-mi_all = reshape(Array(mi_all_gpu), size(X, 1), :)
+mi_all = reshape(Array(mi_all_gpu), size(X, 1), :);
 
 # CLR filtering
 mi_all_clr = scN.apply_wclr(mi_all, size(X, 2))
