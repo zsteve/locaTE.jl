@@ -33,7 +33,8 @@ export fitsp
 export aupr, prec_rec_rate, ep
 export auroc, tp_fp_rate
 export fitnmf, fitntf
-export get_MI!, get_joint_cache, getcoupling_dense, getcoupling_dense_trimmed, getcoupling_sparse
+export get_MI!,
+    get_joint_cache, getcoupling_dense, getcoupling_dense_trimmed, getcoupling_sparse
 
 function __init__()
     return copy!(tl_decomp, pyimport_conda("tensorly.decomposition", "tensorly"))
