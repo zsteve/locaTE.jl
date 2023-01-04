@@ -80,7 +80,7 @@ L = sparse(normalized_laplacian(max.(A, A'), Float64));
 # ## Perform directed inference
 @info "Directed inference"
 mi_all = zeros(size(X, 1), size(X, 2)^2);
-@info "Computing RDI scores"
+@info "Computing TE scores"
 alg = DiscretizeBayesianBlocks()
 disc = scN.discretizations_bulk(X; alg = alg)
 for i = 1:size(X, 1)
