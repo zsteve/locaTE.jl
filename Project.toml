@@ -1,12 +1,13 @@
 name = "scNetworkInference"
 uuid = "d47a2e43-82e6-47ba-a340-eddb77145d33"
 authors = ["Stephen Zhang <syz@syz.id.au>"]
-version = "0.2.4"
+version = "0.2.5"
 
 [deps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Discretizers = "6e83dbb3-75ca-525b-8ae2-3751f0dd50b4"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 EvalMetrics = "251d5f9e-10c1-4699-ba24-e0ad168fa3e4"
 InformationMeasures = "96684042-fbdc-5399-9b8e-d34e539a126c"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"

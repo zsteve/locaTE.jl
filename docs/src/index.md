@@ -32,7 +32,7 @@ tp_fp_rate
 ```@docs
 get_MI!
 get_joint_cache
-getcoupling
 getcoupling_dense
+getcoupling_dense_trimmed
 getcoupling_sparse
 ```
