@@ -34,10 +34,10 @@ id = npzread("clusterid.npy");
 # construct neighbourhoods using QOT 
 R = quadreg(ones(size(X, 1)), ones(size(X, 1)), C, 2.5 * mean(C));
 # list of gene pairs 
-gene_idxs = vcat([[j, i]' for i = 1:size(X, 2) for j = 1:size(X, 2)]...);
+# gene_idxs = vcat([[j, i]' for i = 1:size(X, 2) for j = 1:size(X, 2)]...);
 
 # ## Construct sparse forward and backward transition matrices for `k` steps of `P`.
-k = 3
+k = 1
 π_unif = fill(1 / size(P, 1), size(P, 1))'
 Q = (P' .* π_unif) ./ (π_unif * P)';
 R_sp = sparse(R)
@@ -77,31 +77,16 @@ for (i, j) in enumerate(idxs)
 end
 L = sparse(normalized_laplacian(max.(A, A'), Float64));
 
-# ## Perform directed inference
-using Base.Threads
-@info "Directed inference"
-mi_all = zeros(size(X, 1), size(X, 2)^2);
-@info "Computing TE scores"
-alg = DiscretizeBayesianBlocks()
-disc = lTE.discretizations_bulk(X; alg = alg)
-@threads for i = 1:size(X, 1)
-    mi_all[i, :] = lTE.get_MI(
-        X,
-        lTE.compute_coupling(X, i, P_sp, QT_sp, R_sp),
-        gene_idxs[:, 1],
-        gene_idxs[:, 2];
-        disc = disc,
-        alg = alg,
-    )
-end
+@info "Estimating TE scores" 
+TE = lTE.estimate_TE(X, 1:size(X, 2), 1:size(X, 2), P_sp, QT_sp, R_sp; showprogress = false)
 @info "Applying CLR"
-mi_all_clr = lTE.apply_wclr(mi_all, size(X, 2))
-mi_all_clr[isnan.(mi_all_clr)] .= 0;
+TE_clr = lTE.apply_wclr(TE, size(X, 2))
+TE_clr[isnan.(TE_clr)] .= 0;
 
 # ## Denoise using graph-regularized regression
 @info "Denoising"
-w = normalize(vec(sqrt.(sum(mi_all_clr .^ 2; dims = 2))), 1) # weights (optional)
-G = @suppress lTE.fitsp(mi_all_clr, L; λ1 = 25.0, λ2 = 0.001, maxiter = 500);
+w = normalize(vec(sqrt.(sum(TE_clr .^ 2; dims = 2))), 1) # weights (optional)
+G = @suppress lTE.fitsp(TE_clr, L; λ1 = 25.0, λ2 = 0.001, maxiter = 500);
 G_symm = lTE.symm_row(G, size(X, 2)); # symmetrized version for comparison to undirected methods
 # we can plot the TE density
 scatter(
@@ -142,7 +127,7 @@ plt1 = rocplot(
 );
 rocplot!(
     vec(R * reshape(abs.(J), :, size(X, 2) * size(X, 2))) .> 0.5,
-    vec(mi_all);
+    vec(TE);
     label = "Raw TE",
 );
 plt2 = prplot(
@@ -152,7 +137,7 @@ plt2 = prplot(
 );
 prplot!(
     vec(R * reshape(abs.(J), :, size(X, 2) * size(X, 2))) .> 0.5,
-    vec(mi_all);
+    vec(TE);
     label = "Raw TE",
 );
 plot(plt1, plt2)
@@ -191,7 +176,7 @@ qnorm(x, q) = x ./ quantile(vec(x), q)
 Cg = cor(X) .^ 2;
 Cg[diagind(Cg)] .= 0;
 U, V, trace = @suppress lTE.fitnmf(
-    relu.(qnorm(mi_all_clr, 0.9)),
+    relu.(qnorm(TE_clr, 0.9)),
     [I(size(G, 1)), I(size(G, 2))],
     1e-3 * I + L,
     repeat(vec(Cg), 1, size(X, 1))',
@@ -241,7 +226,7 @@ using TensorToolbox
 Cg = cor(X) .^ 2;
 Cg[diagind(Cg)] .= 0;
 S, A, trace = @suppress lTE.fitntf(
-    Array(reshape(qnorm(mi_all_clr, 0.9), :, size(X, 2), size(X, 2))),
+    Array(reshape(qnorm(TE_clr, 0.9), :, size(X, 2), size(X, 2))),
     [I(size(X, 1)), I(size(X, 2)), I(size(X, 2))],
     1e-3 * I + L,
     repeat(reshape(Cg, 1, size(X, 2), size(X, 2)), size(X, 1)),

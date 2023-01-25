@@ -86,69 +86,18 @@ for (i, j) in enumerate(idxs)
     A[i, j] .= 1.0
 end
 L = sparse(normalized_laplacian(max.(A, A'), Float64));
-# Discretization
-alg = DiscretizeBayesianBlocks()
-disc = lTE.discretizations_bulk(X; alg = alg);
 
-# ## Perform directed inference using CPU
-# Uncomment to run on CPU. We demonstrate GPU acceleration below.
-# ```
-# using Base.Threads
-# @info "Directed inference"
-# mi_all = zeros(size(X, 1), size(X, 2)^2);
-# @info "Computing TE scores"
-# @threads for i = 1:size(X, 1)
-#     mi_all[i, :] = lTE.get_MI(
-#         X,
-#         lTE.compute_coupling(X, i, P_sp, QT_sp, R_sp),
-#         gene_idxs[:, 1],
-#         gene_idxs[:, 2];
-#         disc = disc,
-#         alg = alg,
-#     )
-# end
-# ```
-
-# ## Perform directed inference on GPU
-# Do some setup first (create joint distribution cache, convert expression values to bin-ids)
-using CUDA
-disc_max_size = maximum(map(x -> length(x[1]) - 1, disc))
-N_blocks = 1
-joint_cache = lTE.get_joint_cache(size(X, 2) ÷ N_blocks, disc_max_size);
-ids_cu = hcat(map(x -> x[2], disc)...) |> cu;
-# Copy transition matrices and neighbourhood kernel to CUDA device
-P_cu = cu(Array(P_sp))
-QT_cu = cu(Array(QT_sp))
-R_cu = cu(Array(R_sp));
-# Estimate TE using GPU 
-mi_all_gpu = zeros(Float32, size(X, 1), size(X, 2), size(X, 2)) |> cu
-for i = 1:size(X, 1)
-    gamma, idx0, idx1 = lTE.getcoupling_dense_trimmed(i, P_cu, QT_cu, R_cu)
-    for ((N_x, N_y), (offset_x, offset_y)) in lTE.getblocks(size(X, 2), N_blocks, N_blocks)
-        lTE.get_MI!(
-            view(mi_all_gpu, i, :, :),
-            joint_cache,
-            gamma,
-            size(X, 2),
-            ids_cu[idx0, :],
-            ids_cu[idx1, :];
-            offset_x = offset_x,
-            N_x = N_x,
-            offset_y = offset_y,
-            N_y = N_y,
-        )
-    end
-end
-# Copy back to CPU
-mi_all = reshape(Array(mi_all_gpu), size(X, 1), :);
+# ## Perform directed inference
+@info "Estimating TE scores" 
+TE = lTE.estimate_TE_cu(X, 1:size(X, 2), 1:size(X, 2), Array(P_sp), Array(QT_sp), Array(R_sp)); 
 
 # CLR filtering
-mi_all_clr = lTE.apply_wclr(mi_all, size(X, 2))
-mi_all_clr[isnan.(mi_all_clr)] .= 0
+TE_clr = lTE.apply_wclr(TE, size(X, 2))
+TE_clr[isnan.(TE_clr)] .= 0
 @info "Denoising"
-w = vec(sqrt.(sum(mi_all_clr .^ 2; dims = 2)))
+w = vec(sqrt.(sum(TE_clr .^ 2; dims = 2)))
 w /= sum(w)
-G = @suppress lTE.fitsp(mi_all_clr, L; λ1 = 10.0, λ2 = 0.001, maxiter = 100);
+G = @suppress lTE.fitsp(TE_clr, L; λ1 = 10.0, λ2 = 0.001, maxiter = 100);
 
 # To get a static network, aggregate over dpt < 0.9
 agg_fun = x -> mean(x[dpt.<0.9, :]; dims = 1)
@@ -219,9 +168,9 @@ plot(
 # ## ROC and PR curves
 using EvalMetrics
 plt1 = rocplot(vec(J), vec(agg_fun(G)); label = "locaTE")
-rocplot!(vec(J), vec(agg_fun(mi_all)); label = "Raw TE")
+rocplot!(vec(J), vec(agg_fun(TE)); label = "Raw TE")
 plt2 = prplot(vec(J), vec(agg_fun(G)); label = "locaTE")
-prplot!(vec(J), vec(agg_fun(mi_all)); label = "Raw TE", ylim = (0, 0.3))
+prplot!(vec(J), vec(agg_fun(TE)); label = "Raw TE", ylim = (0, 0.3))
 hline!(
     plt2,
     [mean(J .> 0)];
@@ -237,7 +186,7 @@ plt1 = rocplot(
 )
 rocplot!(
     vec(J_escape[regulators, :]),
-    vec(reshape(agg_fun(mi_all), size(X, 2), size(X, 2))[regulators, :]);
+    vec(reshape(agg_fun(TE), size(X, 2), size(X, 2))[regulators, :]);
     label = "Raw TE",
 )
 plt2 = prplot(
@@ -247,7 +196,7 @@ plt2 = prplot(
 )
 prplot!(
     vec(J_escape[regulators, :]),
-    vec(reshape(agg_fun(mi_all), size(X, 2), size(X, 2))[regulators, :]);
+    vec(reshape(agg_fun(TE), size(X, 2), size(X, 2))[regulators, :]);
     label = "Raw TE",
 )
 hline!(
@@ -262,7 +211,7 @@ qnorm(x, q) = x ./ quantile(vec(x), q)
 Cg = cor(X) .^ 2;
 Cg[diagind(Cg)] .= 0;
 U, V, trace = @suppress lTE.fitnmf(
-    relu.(qnorm(mi_all_clr, 0.9)),
+    relu.(qnorm(TE_clr, 0.9)),
     [I(size(G, 1)), I(size(G, 2))],
     1e-3 * I + L,
     repeat(vec(Cg), 1, size(X, 1))',
