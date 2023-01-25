@@ -41,10 +41,11 @@ end;
 
 # ## Construct neighborhood kernel and couplings
 R = quadreg(ones(size(X, 1)), ones(size(X, 1)), C, 2.5 * mean(C));
+npzwrite("R.npy", R)
 gene_idxs = vcat([[j, i]' for i = 1:size(X, 2) for j = 1:size(X, 2)]...);
 k = 1
 π_unif = fill(1 / size(P, 1), size(P, 1))'
-Q = (P' .* π_unif) ./ (π_unif * P)';
+Q = lTE.to_backward_kernel(P)
 P_sp = sparse((P^k))
 QT_sp = sparse((Q^k)')
 R_sp = sparse(R);

@@ -33,13 +33,14 @@ J = permutedims(npzread("J.npy"), [1, 3, 2]);
 id = npzread("clusterid.npy");
 # construct neighbourhoods using QOT 
 R = quadreg(ones(size(X, 1)), ones(size(X, 1)), C, 2.5 * mean(C));
+npzwrite("R.npy", R)
 # list of gene pairs 
 # gene_idxs = vcat([[j, i]' for i = 1:size(X, 2) for j = 1:size(X, 2)]...);
 
 # ## Construct sparse forward and backward transition matrices for `k` steps of `P`.
-k = 1
+k = 3
 π_unif = fill(1 / size(P, 1), size(P, 1))'
-Q = (P' .* π_unif) ./ (π_unif * P)';
+Q = lTE.to_backward_kernel(P)
 R_sp = sparse(R)
 QT_sp = sparse((Q^k)')
 P_sp = sparse((P^k));

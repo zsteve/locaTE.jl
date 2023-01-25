@@ -73,8 +73,8 @@ function estimate_TE(X::Matrix, regulators, targets, P, QT, R;
         end
     end
     if wclr
-        TE_clr = apply_wclr(mi_all, length(regulators)) # todo
-        TE_clr[isnan.(mi_all_clr)] .= 0;
+        TE_clr = apply_wclr(TE, length(regulators)) # todo
+        TE_clr[isnan.(TE_clr)] .= 0;
         return TE_clr
     else
         return TE
@@ -90,6 +90,7 @@ function estimate_TE_cu(X::Matrix, regulators, targets, P, QT, R;
         N_blocks=1)
     @assert length(regulators) == length(targets) # for now 
     clusters = clusters === nothing ? I(size(X, 1)) : clusters 
+    p = showprogress ? Progress(size(clusters, 2)) : nothing 
     disc = discretizations_bulk(X; alg = discretizer_alg)
     disc_max_size = maximum(map(x -> length(x[1]) - 1, disc))
     joint_cache = get_joint_cache(length(regulators) ÷ N_blocks, disc_max_size);
@@ -100,7 +101,7 @@ function estimate_TE_cu(X::Matrix, regulators, targets, P, QT, R;
     R_cu = cu(R)
     # Estimate TE using GPU 
     TE = CuArray{Float32}(undef, (size(clusters, 1), length(regulators), length(targets)))
-    for i = 1:size(clusters, 1)
+    for i = 1:size(clusters, 2)
         gamma, idx0, idx1 = getcoupling_dense_trimmed(i, P_cu, QT_cu, R_cu)
         for ((N_x, N_y), (offset_x, offset_y)) in getblocks(size(X, 2), N_blocks, N_blocks)
             get_MI!(
@@ -116,6 +117,9 @@ function estimate_TE_cu(X::Matrix, regulators, targets, P, QT, R;
                 N_y = N_y,
             )
         end
+	if showprogress
+		next!(p)
+	end
     end
     # Copy back to CPU
     if wclr
