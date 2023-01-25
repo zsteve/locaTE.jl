@@ -116,95 +116,33 @@ end
 L = sparse(normalized_laplacian(max.(A, A'), Float64));
 ````
 
-Discretization
+## Perform directed inference
 
 ````julia
-alg = DiscretizeBayesianBlocks()
-disc = lTE.discretizations_bulk(X; alg = alg);
+@info "Estimating TE scores"
+TE = lTE.estimate_TE_cu(X, 1:size(X, 2), 1:size(X, 2), Array(P_sp), Array(QT_sp), Array(R_sp));
 ````
 
-## Perform directed inference using CPU
-Uncomment to run on CPU. We demonstrate GPU acceleration below.
-```
-using Base.Threads
-@info "Directed inference"
-mi_all = zeros(size(X, 1), size(X, 2)^2);
-@info "Computing TE scores"
-@threads for i = 1:size(X, 1)
-    mi_all[i, :] = lTE.get_MI(
-        X,
-        lTE.compute_coupling(X, i, P_sp, QT_sp, R_sp),
-        gene_idxs[:, 1],
-        gene_idxs[:, 2];
-        disc = disc,
-        alg = alg,
-    )
-end
-```
-
-## Perform directed inference on GPU
-Do some setup first (create joint distribution cache, convert expression values to bin-ids)
-
-````julia
-using CUDA
-disc_max_size = maximum(map(x -> length(x[1]) - 1, disc))
-N_blocks = 1
-joint_cache = lTE.get_joint_cache(size(X, 2) ÷ N_blocks, disc_max_size);
-ids_cu = hcat(map(x -> x[2], disc)...) |> cu;
 ````
+[ Info: Estimating TE scores
 
-Copy transition matrices and neighbourhood kernel to CUDA device
-
-````julia
-P_cu = cu(Array(P_sp))
-QT_cu = cu(Array(QT_sp))
-R_cu = cu(Array(R_sp));
-````
-
-Estimate TE using GPU
-
-````julia
-mi_all_gpu = zeros(Float32, size(X, 1), size(X, 2), size(X, 2)) |> cu
-for i = 1:size(X, 1)
-    gamma, idx0, idx1 = lTE.getcoupling_dense_trimmed(i, P_cu, QT_cu, R_cu)
-    for ((N_x, N_y), (offset_x, offset_y)) in lTE.getblocks(size(X, 2), N_blocks, N_blocks)
-        lTE.get_MI!(
-            view(mi_all_gpu, i, :, :),
-            joint_cache,
-            gamma,
-            size(X, 2),
-            ids_cu[idx0, :],
-            ids_cu[idx1, :];
-            offset_x = offset_x,
-            N_x = N_x,
-            offset_y = offset_y,
-            N_y = N_y,
-        )
-    end
-end
-````
-
-Copy back to CPU
-
-````julia
-mi_all = reshape(Array(mi_all_gpu), size(X, 1), :);
 ````
 
 CLR filtering
 
 ````julia
-mi_all_clr = lTE.apply_wclr(mi_all, size(X, 2))
-mi_all_clr[isnan.(mi_all_clr)] .= 0
+TE_clr = lTE.apply_wclr(TE, size(X, 2))
+TE_clr[isnan.(TE_clr)] .= 0
 @info "Denoising"
-w = vec(sqrt.(sum(mi_all_clr .^ 2; dims = 2)))
+w = vec(sqrt.(sum(TE_clr .^ 2; dims = 2)))
 w /= sum(w)
-G = @suppress lTE.fitsp(mi_all_clr, L; λ1 = 10.0, λ2 = 0.001, maxiter = 100);
+G = @suppress lTE.fitsp(TE_clr, L; λ1 = 10.0, λ2 = 0.001, maxiter = 100);
 ````
 
 ````
 [ Info: Denoising
-[ Info: ΔX = 8.978563211229805e-7, ΔZ = 0.0001318133470150397, ΔW = 0.00014699597421765492
-[ Info: tr(X'LX) = 2.5787097691975194, 0.5|X-G|^2 = 6.009881625779444, |X|1 = 6626.338683050246
+[ Info: ΔX = 8.978072364282028e-7, ΔZ = 0.00013156137832586595, ΔW = 0.00014698686170126415
+[ Info: tr(X'LX) = 2.578709955559244, 0.5|X-G|^2 = 6.009881784523462, |X|1 = 6626.338814678428
 
 ````
 
@@ -221,7 +159,7 @@ heatmap(
     ytickfontsize = 3,
 )
 ````
-![](data_mesc-26.svg)
+![](data_mesc-17.svg)
 
 ## Rank genes by the total outgoing TE score
 
@@ -236,7 +174,7 @@ bar(
     size = (500, 500),
 )
 ````
-![](data_mesc-28.svg)
+![](data_mesc-19.svg)
 
 Do the same, this time using the ESCAPE gold standard
 
@@ -253,7 +191,7 @@ bar(
     size = (500, 500),
 )
 ````
-![](data_mesc-30.svg)
+![](data_mesc-21.svg)
 
 Investigate NANOG → ELF3 interaction
 
@@ -288,16 +226,16 @@ plot(
     legend = nothing,
 )
 ````
-![](data_mesc-32.svg)
+![](data_mesc-23.svg)
 
 ## ROC and PR curves
 
 ````julia
 using EvalMetrics
 plt1 = rocplot(vec(J), vec(agg_fun(G)); label = "locaTE")
-rocplot!(vec(J), vec(agg_fun(mi_all)); label = "Raw TE")
+rocplot!(vec(J), vec(agg_fun(TE)); label = "Raw TE")
 plt2 = prplot(vec(J), vec(agg_fun(G)); label = "locaTE")
-prplot!(vec(J), vec(agg_fun(mi_all)); label = "Raw TE", ylim = (0, 0.3))
+prplot!(vec(J), vec(agg_fun(TE)); label = "Raw TE", ylim = (0, 0.3))
 hline!(
     plt2,
     [mean(J .> 0)];
@@ -305,7 +243,7 @@ hline!(
 )
 plot(plt1, plt2)
 ````
-![](data_mesc-34.svg)
+![](data_mesc-25.svg)
 
 ESCAPE reference
 
@@ -317,7 +255,7 @@ plt1 = rocplot(
 )
 rocplot!(
     vec(J_escape[regulators, :]),
-    vec(reshape(agg_fun(mi_all), size(X, 2), size(X, 2))[regulators, :]);
+    vec(reshape(agg_fun(TE), size(X, 2), size(X, 2))[regulators, :]);
     label = "Raw TE",
 )
 plt2 = prplot(
@@ -327,7 +265,7 @@ plt2 = prplot(
 )
 prplot!(
     vec(J_escape[regulators, :]),
-    vec(reshape(agg_fun(mi_all), size(X, 2), size(X, 2))[regulators, :]);
+    vec(reshape(agg_fun(TE), size(X, 2), size(X, 2))[regulators, :]);
     label = "Raw TE",
 )
 hline!(
@@ -337,7 +275,7 @@ hline!(
 )
 plot(plt1, plt2)
 ````
-![](data_mesc-36.svg)
+![](data_mesc-27.svg)
 
 ## Factor analysis with NMF
 
@@ -346,7 +284,7 @@ qnorm(x, q) = x ./ quantile(vec(x), q)
 Cg = cor(X) .^ 2;
 Cg[diagind(Cg)] .= 0;
 U, V, trace = @suppress lTE.fitnmf(
-    relu.(qnorm(mi_all_clr, 0.9)),
+    relu.(qnorm(TE_clr, 0.9)),
     [I(size(G, 1)), I(size(G, 2))],
     1e-3 * I + L,
     repeat(vec(Cg), 1, size(X, 1))',
@@ -396,6 +334,7 @@ try
 catch e
 end
 ````
+![](data_mesc-33.svg)
 
 ---
 
