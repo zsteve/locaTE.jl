@@ -37,6 +37,7 @@ export fitnmf, fitntf
 export get_MI!,
     get_joint_cache, getcoupling_dense, getcoupling_dense_trimmed, getcoupling_sparse
 export to_backward_kernel
+export estimate_TE, estimate_TE_cu
 
 function __init__()
     return copy!(tl_decomp, pyimport_conda("tensorly.decomposition", "tensorly"))
