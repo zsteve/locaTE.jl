@@ -89,8 +89,15 @@ end
 L = sparse(normalized_laplacian(max.(A, A'), Float64));
 
 # ## Perform directed inference
-@info "Estimating TE scores" 
-TE = lTE.estimate_TE_cu(X, 1:size(X, 2), 1:size(X, 2), Array(P_sp), Array(QT_sp), Array(R_sp)); 
+@info "Estimating TE scores"
+TE = lTE.estimate_TE_cu(
+    X,
+    1:size(X, 2),
+    1:size(X, 2),
+    Array(P_sp),
+    Array(QT_sp),
+    Array(R_sp),
+);
 
 # CLR filtering
 TE_clr = lTE.apply_wclr(TE, size(X, 2))
