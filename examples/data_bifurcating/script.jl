@@ -78,7 +78,7 @@ for (i, j) in enumerate(idxs)
 end
 L = sparse(normalized_laplacian(max.(A, A'), Float64));
 
-@info "Estimating TE scores" 
+@info "Estimating TE scores"
 TE = lTE.estimate_TE(X, 1:size(X, 2), 1:size(X, 2), P_sp, QT_sp, R_sp; showprogress = false)
 @info "Applying CLR"
 TE_clr = lTE.apply_wclr(TE, size(X, 2))

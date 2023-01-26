@@ -44,29 +44,36 @@ function __init__()
 end
 
 function to_backward_kernel(P)
-        π_unif = fill(1/size(P, 1), size(P, 1))'
-        (P' .* π_unif)./(π_unif * P)';
+    π_unif = fill(1 / size(P, 1), size(P, 1))'
+    (P' .* π_unif) ./ (π_unif * P)'
 end
 
-function estimate_TE(X::Matrix, regulators, targets, P, QT, R; 
-        clusters=nothing, 
-        discretizer_alg=DiscretizeBayesianBlocks(),
-        showprogress=true,
-        wclr=false)
+function estimate_TE(
+    X::Matrix,
+    regulators,
+    targets,
+    P,
+    QT,
+    R;
+    clusters = nothing,
+    discretizer_alg = DiscretizeBayesianBlocks(),
+    showprogress = true,
+    wclr = false,
+)
     @assert length(regulators) == length(targets) # for now 
-    clusters = clusters === nothing ? I(size(X, 1)) : clusters 
-    TE = zeros(size(clusters, 2), length(regulators)*length(targets))
+    clusters = clusters === nothing ? I(size(X, 1)) : clusters
+    TE = zeros(size(clusters, 2), length(regulators) * length(targets))
     disc = discretizations_bulk(X; alg = discretizer_alg)
     gene_idxs = vcat([[j, i]' for i in regulators for j in targets]...)
-    p = showprogress ? Progress(size(clusters, 2)) : nothing 
+    p = showprogress ? Progress(size(clusters, 2)) : nothing
     @threads for i = 1:size(clusters, 2)
         TE[i, :] = get_MI(
-        X,
-        compute_coupling(X, i, P, QT, R),
-        gene_idxs[:, 1],
-        gene_idxs[:, 2];
-        disc = disc,
-        alg = discretizer_alg,
+            X,
+            compute_coupling(X, i, P, QT, R),
+            gene_idxs[:, 1],
+            gene_idxs[:, 2];
+            disc = disc,
+            alg = discretizer_alg,
         )
         if showprogress
             next!(p)
@@ -74,7 +81,7 @@ function estimate_TE(X::Matrix, regulators, targets, P, QT, R;
     end
     if wclr
         TE_clr = apply_wclr(TE, length(regulators)) # todo
-        TE_clr[isnan.(TE_clr)] .= 0;
+        TE_clr[isnan.(TE_clr)] .= 0
         return TE_clr
     else
         return TE
@@ -82,19 +89,26 @@ function estimate_TE(X::Matrix, regulators, targets, P, QT, R;
 end
 
 # expects all inputs to reside on CPU
-function estimate_TE_cu(X::Matrix, regulators, targets, P, QT, R;
-        clusters=nothing, 
-        discretizer_alg=DiscretizeBayesianBlocks(),
-        showprogress=true,
-        wclr=false,
-        N_blocks=1)
+function estimate_TE_cu(
+    X::Matrix,
+    regulators,
+    targets,
+    P,
+    QT,
+    R;
+    clusters = nothing,
+    discretizer_alg = DiscretizeBayesianBlocks(),
+    showprogress = true,
+    wclr = false,
+    N_blocks = 1,
+)
     @assert length(regulators) == length(targets) # for now 
-    clusters = clusters === nothing ? I(size(X, 1)) : clusters 
-    p = showprogress ? Progress(size(clusters, 2)) : nothing 
+    clusters = clusters === nothing ? I(size(X, 1)) : clusters
+    p = showprogress ? Progress(size(clusters, 2)) : nothing
     disc = discretizations_bulk(X; alg = discretizer_alg)
     disc_max_size = maximum(map(x -> length(x[1]) - 1, disc))
-    joint_cache = get_joint_cache(length(regulators) ÷ N_blocks, disc_max_size);
-    ids_cu = hcat(map(x -> x[2], disc)...) |> cu;
+    joint_cache = get_joint_cache(length(regulators) ÷ N_blocks, disc_max_size)
+    ids_cu = hcat(map(x -> x[2], disc)...) |> cu
     # Copy transition matrices and neighbourhood kernel to CUDA device
     P_cu = cu(P)
     QT_cu = cu(QT)
@@ -117,14 +131,14 @@ function estimate_TE_cu(X::Matrix, regulators, targets, P, QT, R;
                 N_y = N_y,
             )
         end
-	if showprogress
-		next!(p)
-	end
+        if showprogress
+            next!(p)
+        end
     end
     # Copy back to CPU
     if wclr
         TE_clr = apply_wclr(Array(reshape(TE, size(clusters, 1), :)), length(regulators)) # todo
-        TE_clr[isnan.(TE_clr)] .= 0;
+        TE_clr[isnan.(TE_clr)] .= 0
         return TE_clr
     else
         return Array(reshape(TE, size(clusters, 1), :))

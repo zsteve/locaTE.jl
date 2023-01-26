@@ -38,7 +38,7 @@ isempty(processes) || success(processes) || error("some examples were not run su
 
 ### Build documentation
 using Documenter
-using locaTE 
+using locaTE
 
 makedocs(;
     modules = [locaTE],
