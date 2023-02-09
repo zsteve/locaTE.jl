@@ -97,6 +97,7 @@ function estimate_TE_cu(
     QT,
     R;
     clusters = nothing,
+    disc = nothing,
     discretizer_alg = DiscretizeBayesianBlocks(),
     showprogress = true,
     wclr = false,
@@ -105,7 +106,7 @@ function estimate_TE_cu(
     @assert length(regulators) == length(targets) # for now 
     clusters = clusters === nothing ? I(size(X, 1)) : clusters
     p = showprogress ? Progress(size(clusters, 2)) : nothing
-    disc = discretizations_bulk(X; alg = discretizer_alg)
+    disc = disc === nothing ? discretizations_bulk(X; alg = discretizer_alg) : disc 
     disc_max_size = maximum(map(x -> length(x[1]) - 1, disc))
     joint_cache = get_joint_cache(length(regulators) ÷ N_blocks, disc_max_size)
     ids_cu = hcat(map(x -> x[2], disc)...) |> cu
@@ -114,7 +115,7 @@ function estimate_TE_cu(
     QT_cu = cu(QT)
     R_cu = cu(R)
     # Estimate TE using GPU 
-    TE = CuArray{Float32}(undef, (size(clusters, 1), length(regulators), length(targets)))
+    TE = CuArray{Float32}(undef, (size(clusters, 2), length(regulators), length(targets)))
     for i = 1:size(clusters, 2)
         gamma, idx0, idx1 = getcoupling_dense_trimmed(i, P_cu, QT_cu, R_cu)
         for ((N_x, N_y), (offset_x, offset_y)) in getblocks(size(X, 2), N_blocks, N_blocks)
@@ -137,11 +138,11 @@ function estimate_TE_cu(
     end
     # Copy back to CPU
     if wclr
-        TE_clr = apply_wclr(Array(reshape(TE, size(clusters, 1), :)), length(regulators)) # todo
+        TE_clr = apply_wclr(Array(reshape(TE, size(clusters, 2), :)), length(regulators)) # todo
         TE_clr[isnan.(TE_clr)] .= 0
         return TE_clr
     else
-        return Array(reshape(TE, size(clusters, 1), :))
+        return Array(reshape(TE, size(clusters, 2), :))
     end
 end
 

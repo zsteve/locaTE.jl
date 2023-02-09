@@ -247,9 +247,10 @@ function fitntf(
     A = [similar(G, size(G, i), k) for i = 1:length(size(G))]
     A_new = [similar(a) for a in A]
     # core tensor
-    S = zeros([k for _ = 1:length(size(G))]...)
+    S = similar(G, [k for _ = 1:length(size(G))]...)
+    fill!(S, 0)
     for i = 1:k
-        S[i, i, i] = 1.0
+        S[i, i, i] = 1
     end
     S = tocu(S)
     # initialization 
@@ -290,7 +291,7 @@ function fitntf(
         end
         for i = 1:length(A)
             inds = [j for j in range(length = length(A)) if j != i]
-            Bi = tenmat(ttm(S, [Matrix(A[j]) for j in inds], inds), i)
+            Bi = tenmat(ttm(S, [A[j] for j in inds], inds), i)
             if i == 1
                 A_new[i] .=
                     relu.(
@@ -307,11 +308,11 @@ function fitntf(
                     )
             else
                 Btilde_plus = tenmat(
-                    ttm(S, [Matrix((j == 1 ? D_g : tocu(I)) * A[j]) for j in inds], inds),
+				     ttm(S, [(j == 1 ? D_g : tocu(I(size(A[j], 1)))) * A[j] for j in inds], inds),
                     i,
                 )
                 Btilde_minus = tenmat(
-                    ttm(S, [Matrix((j == 1 ? W_g : tocu(I)) * A[j]) for j in inds], inds),
+				      ttm(S, [(j == 1 ? W_g : tocu(I(size(A[j], 1)))) * A[j] for j in inds], inds),
                     i,
                 )
                 C_plus = (Btilde_plus * Bi' + Bi * Btilde_plus') / 2
