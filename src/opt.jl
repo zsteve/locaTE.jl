@@ -308,11 +308,19 @@ function fitntf(
                     )
             else
                 Btilde_plus = tenmat(
-				     ttm(S, [(j == 1 ? D_g : tocu(I(size(A[j], 1)))) * A[j] for j in inds], inds),
+                    ttm(
+                        S,
+                        [(j == 1 ? D_g : tocu(I(size(A[j], 1)))) * A[j] for j in inds],
+                        inds,
+                    ),
                     i,
                 )
                 Btilde_minus = tenmat(
-				      ttm(S, [(j == 1 ? W_g : tocu(I(size(A[j], 1)))) * A[j] for j in inds], inds),
+                    ttm(
+                        S,
+                        [(j == 1 ? W_g : tocu(I(size(A[j], 1)))) * A[j] for j in inds],
+                        inds,
+                    ),
                     i,
                 )
                 C_plus = (Btilde_plus * Bi' + Bi * Btilde_plus') / 2

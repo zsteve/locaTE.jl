@@ -106,7 +106,7 @@ function estimate_TE_cu(
     @assert length(regulators) == length(targets) # for now 
     clusters = clusters === nothing ? I(size(X, 1)) : clusters
     p = showprogress ? Progress(size(clusters, 2)) : nothing
-    disc = disc === nothing ? discretizations_bulk(X; alg = discretizer_alg) : disc 
+    disc = disc === nothing ? discretizations_bulk(X; alg = discretizer_alg) : disc
     disc_max_size = maximum(map(x -> length(x[1]) - 1, disc))
     joint_cache = get_joint_cache(length(regulators) ÷ N_blocks, disc_max_size)
     ids_cu = hcat(map(x -> x[2], disc)...) |> cu
