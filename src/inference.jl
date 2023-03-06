@@ -1,7 +1,7 @@
 """
     construct_index_maps(coupling)
 
-Construct index maps for sparse coupling matrices.
+Construct index maps for efficient indexing of sparse coupling matrices.
 
 """
 function construct_index_maps(coupling)

@@ -43,11 +43,40 @@ function __init__()
     return copy!(tl_decomp, pyimport_conda("tensorly.decomposition", "tensorly"))
 end
 
+"""
+    to_backward_kernel(P)
+
+Compute backward kernel `QT` from a forward transition kernel `P` using the transpose method. 
+
+"""
 function to_backward_kernel(P)
     π_unif = fill(1 / size(P, 1), size(P, 1))'
     (P' .* π_unif) ./ (π_unif * P)'
 end
 
+"""
+    estimate_TE(
+        X::Matrix,
+        regulators,
+        targets,
+        P,
+        QT,
+        R;
+        clusters = nothing,
+        discretizer_alg = DiscretizeBayesianBlocks(),
+        showprogress = true,
+        wclr = false,
+    )
+
+High-level function for estimating local transfer entropy from cell-by-gene expression matrix `X`, with forward transition kernel `P`, 
+backward transition kernel `QT` (e.g. calculated from `P` using `to_backward_kernel`), and neighbourhood kernel `R`. 
+A subset of regulators and targets can be passed in as index vectors `regulators` and `targets` respectively.
+If one seeks to use metacells, a (sparse) Boolean matrix `clusters` can be passed of dimensions `cells × metacells`, encoding the cell-metacell memberships.
+A custom discretization algorithm can be passed using `discretizer_alg` (see the documentation of [Discretizers.jl](https://github.com/sisl/Discretizers.jl) for further details)
+A progress bar is shown optionally depending on `showprogress`: this is enabled by default.
+If `wclr` is set to `true`, a matrix of filtered TE scores is returned in place of raw TE scores: this is disabled by default. 
+
+"""
 function estimate_TE(
     X::Matrix,
     regulators,
@@ -88,7 +117,26 @@ function estimate_TE(
     end
 end
 
-# expects all inputs to reside on CPU
+"""
+    estimate_TE_cu(
+        X::Matrix,
+        regulators,
+        targets,
+        P,
+        QT,
+        R;
+        clusters = nothing,
+        discretizer_alg = DiscretizeBayesianBlocks(),
+        showprogress = true,
+        wclr = false,
+        N_blocks = 1,
+    )
+
+High-level function for estimating local transfer entropy, utilising GPU acceleration. 
+The usage for this function is identical to `estimate_TE`, except the TE estimation step is done using a CUDA kernel.
+The number of CUDA blocks to be used can be passed as `N_blocks`; by default this is taken to be `1`.
+
+"""
 function estimate_TE_cu(
     X::Matrix,
     regulators,

@@ -1,5 +1,4 @@
 using locaTE
-using OptimalTransport
 using NPZ
 using StatsBase
 using SparseArrays
@@ -15,51 +14,65 @@ using NNlib
 using Base.Filesystem
 using CUDA
 
-s = ArgParseSettings()
+s = ArgParseSettings(
+    description = "locaTE-cmd: utility for running locaTE workflow from the command-line. Input matrices can be supplied as .npy (binary) or .csv (text).",
+)
 @add_arg_table s begin
     "X"
-    help = "path to counts matrix, X"
+    help = "Path to counts matrix X"
     arg_type = String
+    required = true
     "X_rep"
-    help = "path to dim-reduced representation of X"
+    help = "Path to dimensionality-reduced representation of X. From this, the kNN graph will be constructed."
     arg_type = String
+    required = true
     "P"
-    help = "path to transition matrix"
+    help = "Path to transition matrix P encoding dynamics."
     arg_type = String
+    required = true
     "R"
-    help = "path to kernel matrix"
+    help = "Path to kernel matrix R encoding neighbourhood information."
     arg_type = String
+    required = true
     "--tau"
-    help = "power for transition matrix"
+    help = "Power for transition matrix."
     arg_type = Int
     default = 1
     "--k_lap"
-    help = "number of neighbours for Laplacian"
+    help = "Number of neighbours for Laplacian."
     arg_type = Int
     default = 15
     "--lambda1"
+    help = "lambda1 (λ1), strength of Laplacian regularization."
     arg_type = Float64
     default = 5.0
     "--lambda2"
+    help = "lambda2 (λ2), strength of Lasso regularization."
     arg_type = Float64
     default = 0.01
     "--outdir"
+    help = "Output directory"
     arg_type = String
     default = "./"
     "--suffix"
+    help = "Suffix to append to output files."
     arg_type = String
     default = ""
     "--cutoff"
+    help = "Cutoff below which expression values will be set to zero. Can be helpful for expression value binning in some datasets with artifactually small counts."
     arg_type = Float64
     default = 0.0
     "--gpu"
+    help = "GPU acceleration, recommended for large datasets when available."
     action = :store_true
     "--maxiter"
+    help = "Maximum iterations for denoising regression."
     arg_type = Int
     default = 1_000
 end
 
 args = parse_args(s)
+args["suffix"] = args["suffix"] == "" ? "" : string("_", args["suffix"])
 
 function read_array(path)
     ext = splitext(path)[end]
@@ -67,6 +80,7 @@ function read_array(path)
         # numpy array
         return npzread(path)
     elseif ext == ".csv"
+        # text format (csv)
         return CSV.read(path, Array)
     else
         @error "File extension $ext not supported. Please use npy or csv"
@@ -94,7 +108,6 @@ L = sparse(normalized_laplacian(max.(A, A'), Float64));
 R_sp = sparse(R)
 P_sp = sparse(P^args["tau"])
 QT_sp = sparse((Q^args["tau"])')
-
 
 @info "Estimating TE scores..."
 TE =
@@ -132,6 +145,6 @@ G = Array(
     ),
 )
 
-npzwrite(string(args["outdir"], "G_$(args["suffix"]).npy"), G)
-npzwrite(string(args["outdir"], "TE_$(args["suffix"]).npy"), TE)
-npzwrite(string(args["outdir"], "L_$(args["suffix"]).npy"), Array(L))
+npzwrite(joinpath(args["outdir"], "G$(args["suffix"]).npy"), G)
+npzwrite(joinpath(args["outdir"], "TE$(args["suffix"]).npy"), TE)
+npzwrite(joinpath(args["outdir"], "L$(args["suffix"]).npy"), Array(L))

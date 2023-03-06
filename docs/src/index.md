@@ -2,7 +2,14 @@
 
 locaTE is a method for context-specific network inference using _local transfer entropy_. 
 
-# Basic functionality
+# High-level functions
+```@docs
+estimate_TE
+estimate_TE_cu
+to_backward_kernel
+```
+
+# Low-level functions 
 ```@docs
 get_MI
 CLR
@@ -28,7 +35,7 @@ auroc
 tp_fp_rate
 ```
 
-# GPU implementation
+# Low-level GPU implementation
 ```@docs
 get_MI!
 get_joint_cache
