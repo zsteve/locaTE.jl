@@ -17,6 +17,10 @@ using CUDA
 using LogExpFunctions
 using EvalMetrics
 using Base.Threads
+using Graphs
+using GraphSignals
+using NearestNeighbors
+
 CUDA.allowscalar(false)
 
 const tl_decomp = PyCall.PyNULL()
@@ -37,6 +41,7 @@ export fitnmf, fitntf
 export get_MI!,
     get_joint_cache, getcoupling_dense, getcoupling_dense_trimmed, getcoupling_sparse
 export to_backward_kernel
+export construct_normalized_laplacian
 export estimate_TE, estimate_TE_cu
 
 function __init__()
@@ -52,6 +57,22 @@ Compute backward kernel `QT` from a forward transition kernel `P` using the tran
 function to_backward_kernel(P)
     π_unif = fill(1 / size(P, 1), size(P, 1))'
     (P' .* π_unif) ./ (π_unif * P)'
+end
+
+"""
+    construct_normalized_laplacian(X_rep, k)
+
+Construct k-NN graph and normalized, symmetric Laplacian matrix from dimensionality-reduced representation `X_rep`
+
+"""
+function construct_normalized_laplacian(X_rep, k)
+    kdtree = KDTree(X_rep')
+    idxs, dists = knn(kdtree, X_rep', k);
+    A = spzeros(eltype(X_rep), size(X_rep, 1), size(X_rep, 1));
+    for (i, j) in enumerate(idxs)
+        A[i, j] .= 1
+    end
+    L = sparse(normalized_laplacian(max.(A, A')));
 end
 
 """
@@ -89,11 +110,10 @@ function estimate_TE(
     showprogress = true,
     wclr = false,
 )
-    @assert length(regulators) == length(targets) # for now 
     clusters = clusters === nothing ? I(size(X, 1)) : clusters
-    TE = zeros(size(clusters, 2), length(regulators) * length(targets))
+    TE = zeros(eltype(X), size(clusters, 2), length(regulators) * length(targets))
     disc = discretizations_bulk(X; alg = discretizer_alg)
-    gene_idxs = vcat([[j, i]' for i in regulators for j in targets]...)
+    gene_idxs = vcat([[j, i]' for i in targets for j in regulators]...)
     p = showprogress ? Progress(size(clusters, 2)) : nothing
     @threads for i = 1:size(clusters, 2)
         TE[i, :] = get_MI(
@@ -151,12 +171,11 @@ function estimate_TE_cu(
     wclr = false,
     N_blocks = 1,
 )
-    @assert length(regulators) == length(targets) # for now 
     clusters = clusters === nothing ? I(size(X, 1)) : clusters
     p = showprogress ? Progress(size(clusters, 2)) : nothing
     disc = disc === nothing ? discretizations_bulk(X; alg = discretizer_alg) : disc
     disc_max_size = maximum(map(x -> length(x[1]) - 1, disc))
-    joint_cache = get_joint_cache(length(regulators) ÷ N_blocks, disc_max_size)
+    joint_cache = get_joint_cache(length(regulators) ÷ N_blocks, length(targets) ÷ N_blocks, disc_max_size)
     ids_cu = hcat(map(x -> x[2], disc)...) |> cu
     # Copy transition matrices and neighbourhood kernel to CUDA device
     P_cu = cu(P)
@@ -166,14 +185,15 @@ function estimate_TE_cu(
     TE = CuArray{Float32}(undef, (size(clusters, 2), length(regulators), length(targets)))
     for i = 1:size(clusters, 2)
         gamma, idx0, idx1 = getcoupling_dense_trimmed(i, P_cu, QT_cu, R_cu)
-        for ((N_x, N_y), (offset_x, offset_y)) in getblocks(size(X, 2), N_blocks, N_blocks)
+        for ((N_x, N_y), (offset_x, offset_y)) in getblocks(length(regulators), length(targets), N_blocks, N_blocks)
             get_MI!(
                 view(TE, i, :, :),
                 joint_cache,
                 gamma,
-                length(regulators),
                 ids_cu[idx0, :],
-                ids_cu[idx1, :];
+                ids_cu[idx1, :],
+                regulators,
+                targets;
                 offset_x = offset_x,
                 N_x = N_x,
                 offset_y = offset_y,
