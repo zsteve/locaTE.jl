@@ -1,4 +1,4 @@
-function accum_joint_probs_dense!(gamma, coupling, ids0, ids1, regulators, targets, offset_x, N_x, offset_y, N_y)
+function accum_joint_probs_dense!(gamma, coupling, ids0, ids1, offset_x, N_x, offset_y, N_y)
     # for full block iteration, set offset_x = offset_y = 0 and N_x = size(gamma, 1), etc. 
     index_i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     index_j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -20,9 +20,9 @@ function accum_joint_probs_dense!(gamma, coupling, ids0, ids1, regulators, targe
                 @inbounds CUDA.@atomic gamma[
                     i0,
                     i1,
-                    ids0[j, regulators[i0_abs]],
-                    ids1[k, targets[i1_abs]],
-                    ids0[j, targets[i1_abs]],
+                    ids0[j, i0_abs],
+                    ids1[k, i1_abs],
+                    ids0[j, i1_abs],
                 ] += coupling[j, k]
             end
         end
@@ -82,18 +82,9 @@ end
 Get "trimmed" (i.e. removed zero rows and cols) dense coupling for cell `i`, forward transition matrix `P`, transposed backward transition matrix `QT` and neighbourhood kernel `R`.
 Returns the trimmed dense coupling, along with `row_idxs` and `col_idxs`.
 """
-function getcoupling_dense_trimmed(i::Int, P, QT, R)
+function getcoupling_dense_trimmed(i, P, QT, R)
     # full coupling but remove empty rows/cols
     pi = R[i, :]
-    coupling = QT * (reshape(pi, :, 1) .* P)
-    row_idxs = vec(sum(coupling; dims = 2) .> 0)
-    col_idxs = vec(sum(coupling; dims = 1) .> 0)
-    return coupling[row_idxs, col_idxs], row_idxs, col_idxs
-end
-
-function getcoupling_dense_trimmed(idx::AbstractVector, P, QT, R)
-    # full coupling but remove empty rows/cols
-    pi = idx' * R
     coupling = QT * (reshape(pi, :, 1) .* P)
     row_idxs = vec(sum(coupling; dims = 2) .> 0)
     col_idxs = vec(sum(coupling; dims = 1) .> 0)
@@ -150,6 +141,7 @@ function get_MI!(
     coupling_I,
     coupling_J,
     coupling_V,
+    N_genes,
     ids;
     threads = (8, 8, 8),
     blocks = 128,
@@ -195,10 +187,9 @@ function get_MI!(
     mi_all,
     joint_cache,
     coupling,
+    N_genes,
     ids0,
-    ids1,
-    regulators,
-    targets;
+    ids1;
     threads = (8, 8, 8),
     blocks = 128,
     offset_x = nothing,
@@ -217,8 +208,6 @@ function get_MI!(
             coupling,
             ids0,
             ids1,
-            regulators,
-            targets,
             offset_x,
             N_x,
             offset_y,
@@ -234,19 +223,19 @@ function get_MI!(
 end
 
 """
-    getblocks(N_regulators, N_targets, blocks_x, blocks_y)
+    getblocks(N_genes, blocks_x, blocks_y)
 
-For `(N_regulators, N_targets)` TE calculation tasks, get `(N_x, N_y), (offset_x, offset_y))` for splitting into `(blocks_x, blocks_y)` threads.
+For `(N_genes, N_genes)` TE calculation tasks, get `(N_x, N_y), (offset_x, offset_y))` for splitting into `(blocks_x, blocks_y)` threads.
 """
-function getblocks(N_regulators, N_targets, blocks_x, blocks_y)
-    quot_x, rem_x = N_regulators ÷ blocks_x, N_regulators % blocks_x
+function getblocks(N_genes, blocks_x, blocks_y)
+    quot_x, rem_x = N_genes ÷ blocks_x, N_genes % blocks_x
     N_x = fill(quot_x, blocks_x)
     if rem_x > 0
         push!(N_x, rem_x)
     end
     offset_x = pushfirst!(cumsum(N_x)[1:end-1], 0)
     # now for y
-    quot_y, rem_y = N_targets ÷ blocks_y, N_targets % blocks_y
+    quot_y, rem_y = N_genes ÷ blocks_y, N_genes % blocks_y
     N_y = fill(quot_y, blocks_y)
     if rem_y > 0
         push!(N_y, rem_y)

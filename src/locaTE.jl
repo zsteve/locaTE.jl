@@ -115,10 +115,12 @@ function estimate_TE(
     disc = discretizations_bulk(X; alg = discretizer_alg)
     gene_idxs = vcat([[j, i]' for i in targets for j in regulators]...)
     p = showprogress ? Progress(size(clusters, 2)) : nothing
+    clusters_norm = convert(Matrix{eltype(P)}, clusters)
+    clusters_norm ./= sum(clusters_norm; dims = 1)
     @threads for i = 1:size(clusters, 2)
         TE[i, :] = get_MI(
             X,
-            compute_coupling(X, i, P, QT, R),
+            compute_coupling(X, clusters_norm[:, i], P, QT, R),
             gene_idxs[:, 1],
             gene_idxs[:, 2];
             disc = disc,
@@ -181,10 +183,12 @@ function estimate_TE_cu(
     P_cu = cu(P)
     QT_cu = cu(QT)
     R_cu = cu(R)
+    clusters_norm_cu = cu(convert(Matrix{eltype(P_cu)}, clusters))
+    clusters_norm_cu ./= sum(clusters_norm_cu; dims = 1)
     # Estimate TE using GPU 
     TE = CuArray{Float32}(undef, (size(clusters, 2), length(regulators), length(targets)))
     for i = 1:size(clusters, 2)
-        gamma, idx0, idx1 = getcoupling_dense_trimmed(i, P_cu, QT_cu, R_cu)
+        gamma, idx0, idx1 = getcoupling_dense_trimmed(clusters_norm_cu[:, i], P_cu, QT_cu, R_cu)
         for ((N_x, N_y), (offset_x, offset_y)) in getblocks(length(regulators), length(targets), N_blocks, N_blocks)
             get_MI!(
                 view(TE, i, :, :),

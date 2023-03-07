@@ -145,6 +145,24 @@ function compute_coupling(
 end
 
 """
+    compute_coupling(X::AbstractMatrix, idx::BitVector, P::AbstractSparseMatrix, QT::AbstractSparseMatrix, R::AbstractSparseMatrix)
+
+Compute directed coupling for cell indices `idx` with neighbourhood kernel `R`, forward transition matrix `P` and (transposed) backward transition matrix `QT`.
+
+"""
+function compute_coupling(
+    X::AbstractMatrix,
+    idx::AbstractVector,
+    P::AbstractSparseMatrix,
+    QT::AbstractSparseMatrix,
+    R::AbstractSparseMatrix,
+)
+    pi = idx' * R
+    QT * (sparse(reshape(pi, :, 1)) .* P)
+end
+
+
+"""
     apply_wclr(A, n_genes)
 
 Apply `wCLR` to an array of flattened interaction matrices, i.e. of dimensions `(n_cells, n_genes^2)`
