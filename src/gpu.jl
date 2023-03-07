@@ -1,4 +1,15 @@
-function accum_joint_probs_dense!(gamma, coupling, ids0, ids1, regulators, targets, offset_x, N_x, offset_y, N_y)
+function accum_joint_probs_dense!(
+        gamma::AbstractArray, 
+        coupling::AbstractMatrix, 
+        ids0::AbstractMatrix{Int}, 
+        ids1::AbstractMatrix{Int}, 
+        regulators, 
+        targets, 
+        offset_x::Int,
+        N_x::Int,
+        offset_y::Int,
+        N_y::Int
+    )
     # for full block iteration, set offset_x = offset_y = 0 and N_x = size(gamma, 1), etc. 
     index_i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     index_j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -31,15 +42,17 @@ function accum_joint_probs_dense!(gamma, coupling, ids0, ids1, regulators, targe
 end
 
 function accum_joint_probs_sparse!(
-    gamma,
-    coupling_I,
-    coupling_J,
-    coupling_V,
-    ids,
-    offset_x,
-    N_x,
-    offset_y,
-    N_y,
+    gamma::AbstractArray,
+    coupling_I::AbstractVector{Int},
+    coupling_J::AbstractVector{Int},
+    coupling_V::AbstractVector{T} where T <: Real,
+    ids::AbstractMatrix{Int},
+    regulators,
+    targets, 
+    offset_x::Int,
+    N_x::Int,
+    offset_y::Int,
+    N_y::Int,
 )
     index_i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     index_j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -55,9 +68,9 @@ function accum_joint_probs_sparse!(
                 @inbounds CUDA.@atomic gamma[
                     i,
                     j,
-                    ids[coupling_I[k], i_abs],
-                    ids[coupling_J[k], j_abs],
-                    ids[coupling_I[k], j_abs],
+                    ids[coupling_I[k], regulators[i_abs]],
+                    ids[coupling_J[k], targets[j_abs]],
+                    ids[coupling_I[k], targets[j_abs]],
                 ] += coupling_V[k]
             end
         end
@@ -70,7 +83,7 @@ end
 
 Get dense coupling for cell `i`, forward transition matrix `P`, transposed backward transition matrix `QT` and neighbourhood kernel `R`.
 """
-function getcoupling_dense(i, P, QT, R)
+function getcoupling_dense(i::Int, P::AbstractMatrix, QT::AbstractMatrix, R::AbstractMatrix)
     # full coupling
     pi = R[i, :]
     QT * (reshape(pi, :, 1) .* P)
@@ -82,7 +95,7 @@ end
 Get "trimmed" (i.e. removed zero rows and cols) dense coupling for cell `i`, forward transition matrix `P`, transposed backward transition matrix `QT` and neighbourhood kernel `R`.
 Returns the trimmed dense coupling, along with `row_idxs` and `col_idxs`.
 """
-function getcoupling_dense_trimmed(i::Int, P, QT, R)
+function getcoupling_dense_trimmed(i::Int, P::AbstractMatrix, QT::AbstractMatrix, R::AbstractMatrix)
     # full coupling but remove empty rows/cols
     pi = R[i, :]
     coupling = QT * (reshape(pi, :, 1) .* P)
@@ -91,7 +104,7 @@ function getcoupling_dense_trimmed(i::Int, P, QT, R)
     return coupling[row_idxs, col_idxs], row_idxs, col_idxs
 end
 
-function getcoupling_dense_trimmed(idx::AbstractVector, P, QT, R)
+function getcoupling_dense_trimmed(idx::AbstractVector, P::AbstractMatrix, QT::AbstractMatrix, R::AbstractMatrix)
     # full coupling but remove empty rows/cols
     pi = idx' * R
     coupling = QT * (reshape(pi, :, 1) .* P)
@@ -105,14 +118,21 @@ end
 
 Get sparse coupling for cell `i`, forward transition matrix `P`, transposed backward transition matrix `QT` and neighbourhood kernel `R`.
 """
-function getcoupling_sparse(i, P, QT, R)
+function getcoupling_sparse(i::Int, P::AbstractMatrix, QT::AbstractMatrix, R::AbstractMatrix)
     # return list of (i, j, v) for sparse coupling representation
     pi = R[i, :]
     coupling = QT * (reshape(pi, :, 1) .* P)
     findnz(sparse(coupling))
 end
 
-function conditional_mutual_information(joint_probs)
+function getcoupling_sparse(idx::AbstractVector, P::AbstractMatrix, QT::AbstractMatrix, R::AbstractMatrix)
+    # return list of (i, j, v) for sparse coupling representation
+    pi = idx' * R
+    coupling = QT * (reshape(pi, :, 1) .* P)
+    findnz(sparse(coupling))
+end
+
+function conditional_mutual_information(joint_probs::AbstractArray)
     H_xz = dropdims(mapreduce(xlogx, +, sum(joint_probs; dims = 4); dims = (3, 5)))
     H_yz = dropdims(mapreduce(xlogx, +, sum(joint_probs; dims = 3); dims = (4, 5)))
     H_xyz = dropdims(mapreduce(xlogx, +, joint_probs; dims = (3, 4, 5)))
@@ -125,7 +145,7 @@ end
 
 Create joint distribution cache for all pairs of `1:N_genes`.
 """
-function get_joint_cache(N_genes, discret_max_size)
+function get_joint_cache(N_genes::Int, discret_max_size::Int)
     CUDA.fill(0.0f0, N_genes, N_genes, fill(discret_max_size, 3)...)
 end
 
@@ -134,7 +154,7 @@ end
 
 Create joint distribution cache for `N_x` regulators and `N_y` targets. 
 """
-function get_joint_cache(N_x, N_y, discret_max_size)
+function get_joint_cache(N_x::Int, N_y::Int, discret_max_size::Int)
     CUDA.fill(0.0f0, N_x, N_y, fill(discret_max_size, 3)...)
 end
 
@@ -145,14 +165,16 @@ Calculate transfer entropy and write to `mi_all` using cache `joint_cache`, with
 `N_x, N_y` and `offset_x, offset_y` are required for GPU compute blocks. See examples for usage. 
 """
 function get_MI!(
-    mi_all,
-    joint_cache,
-    coupling_I,
-    coupling_J,
-    coupling_V,
-    ids;
-    threads = (8, 8, 8),
-    blocks = 128,
+    mi_all::AbstractArray,
+    joint_cache::AbstractArray,
+    coupling_I::AbstractVector{Int},
+    coupling_J::AbstractVector{Int},
+    coupling_V::AbstractVector{T} where T <: Real,
+    ids::AbstractMatrix{Int},
+    regulators,
+    targets;
+    threads::Tuple{Int, Int, Int} = (8, 8, 8),
+    blocks::Int = 128,
     offset_x = nothing,
     N_x = nothing,
     offset_y = nothing,
@@ -170,6 +192,8 @@ function get_MI!(
             coupling_J,
             coupling_V,
             ids,
+            regulators,
+            targets, 
             offset_x,
             N_x,
             offset_y,
@@ -192,15 +216,15 @@ Calculate transfer entropy and write to `mi_all` using cache `joint_cache`, with
 `N_x, N_y` and `offset_x, offset_y` are required for GPU compute blocks. See examples for usage. 
 """
 function get_MI!(
-    mi_all,
-    joint_cache,
-    coupling,
-    ids0,
-    ids1,
+    mi_all::AbstractArray,
+    joint_cache::AbstractArray,
+    coupling::AbstractMatrix,
+    ids0::AbstractMatrix{Int},
+    ids1::AbstractMatrix{Int},
     regulators,
     targets;
-    threads = (8, 8, 8),
-    blocks = 128,
+    threads::Tuple{Int, Int, Int} = (8, 8, 8),
+    blocks::Int = 128,
     offset_x = nothing,
     N_x = nothing,
     offset_y = nothing,
@@ -238,7 +262,7 @@ end
 
 For `(N_regulators, N_targets)` TE calculation tasks, get `(N_x, N_y), (offset_x, offset_y))` for splitting into `(blocks_x, blocks_y)` threads.
 """
-function getblocks(N_regulators, N_targets, blocks_x, blocks_y)
+function getblocks(N_regulators::Int, N_targets::Int, blocks_x::Int, blocks_y::Int)
     quot_x, rem_x = N_regulators ÷ blocks_x, N_regulators % blocks_x
     N_x = fill(quot_x, blocks_x)
     if rem_x > 0

@@ -4,15 +4,15 @@
 Construct index maps for efficient indexing of sparse coupling matrices.
 
 """
-function construct_index_maps(coupling)
+function construct_index_maps(coupling::AbstractMatrix)
     # construct row and col indices/maps
     w_row = sum(coupling; dims = 2)
     row_idxs = findnz(w_row)[1]
-    row_map = similar(row_idxs, Int64, size(coupling, 1))
+    row_map = similar(row_idxs, size(coupling, 1))
     row_map[row_idxs] .= collect(1:length(row_idxs))
     w_col = sum(coupling; dims = 1)
     col_idxs = findnz(w_col)[2]
-    col_map = similar(col_idxs, Int64, size(coupling, 1))
+    col_map = similar(col_idxs, size(coupling, 1))
     col_map[col_idxs] .= collect(1:length(col_idxs))
     return row_idxs, row_map, col_idxs, col_map
 end
@@ -53,8 +53,6 @@ function get_MI(
                     X,
                     genes_prev[j],
                     genes_next[j],
-                    row_idxs,
-                    col_idxs,
                     row_map,
                     col_map,
                     disc_prev,
@@ -75,9 +73,9 @@ end
 Compute CLR filtering of gene expression matrix `x`.
 
 """
-function CLR(x)
+function CLR(x::AbstractMatrix)
     [
-        0.5 * sqrt.(relu(zscore(x[i, :])[j]) .^ 2 + relu(zscore(x[:, j])[i]) .^ 2) for
+        sqrt.(relu(zscore(x[i, :])[j]) .^ 2 + relu(zscore(x[:, j])[i]) .^ 2)/2 for
         i = 1:size(x, 1), j = 1:size(x, 2)
     ]
 end
@@ -88,10 +86,9 @@ end
 Compute weighted CLR filtering of gene expression matrix `x`.
 
 """
-function wCLR(x)
+function wCLR(x::AbstractMatrix)
     [
-        0.5 *
-        sqrt.(relu(zscore(x[i, :])[j]) .^ 2 + relu(zscore(x[:, j])[i]) .^ 2) *
+        sqrt.(relu(zscore(x[i, :])[j]) .^ 2 + relu(zscore(x[:, j])[i]) .^ 2)/2 *
         x[i, j] for i = 1:size(x, 1), j = 1:size(x, 2)
     ]
 end
@@ -168,7 +165,7 @@ end
 Apply `wCLR` to an array of flattened interaction matrices, i.e. of dimensions `(n_cells, n_genes^2)`
 
 """
-apply_wclr(A, n_genes) =
+apply_wclr(A::AbstractArray, n_genes::Int) =
     hcat(map(x -> vec(wCLR(reshape(x, n_genes, n_genes))), eachrow(A))...)'
 
 """
@@ -177,5 +174,5 @@ apply_wclr(A, n_genes) =
 Apply `CLR` to an array of flattened interaction matrices, i.e. of dimensions `(n_cells, n_genes^2)`
 
 """
-apply_clr(A, n_genes) =
+apply_clr(A::AbstractArray, n_genes::Int) =
     hcat(map(x -> vec(CLR(reshape(x, n_genes, n_genes))), eachrow(A))...)'

@@ -49,12 +49,12 @@ function __init__()
 end
 
 """
-    to_backward_kernel(P)
+    to_backward_kernel(P::AbstractArray)
 
 Compute backward kernel `QT` from a forward transition kernel `P` using the transpose method. 
 
 """
-function to_backward_kernel(P)
+function to_backward_kernel(P::AbstractArray)
     π_unif = fill(1 / size(P, 1), size(P, 1))'
     (P' .* π_unif) ./ (π_unif * P)'
 end
@@ -65,7 +65,7 @@ end
 Construct k-NN graph and normalized, symmetric Laplacian matrix from dimensionality-reduced representation `X_rep`
 
 """
-function construct_normalized_laplacian(X_rep, k)
+function construct_normalized_laplacian(X_rep::AbstractArray, k::Int)
     kdtree = KDTree(X_rep')
     idxs, dists = knn(kdtree, X_rep', k);
     A = spzeros(eltype(X_rep), size(X_rep, 1), size(X_rep, 1));
@@ -99,16 +99,16 @@ If `wclr` is set to `true`, a matrix of filtered TE scores is returned in place 
 
 """
 function estimate_TE(
-    X::Matrix,
+    X::AbstractMatrix,
     regulators,
     targets,
-    P,
-    QT,
-    R;
+    P::AbstractMatrix,
+    QT::AbstractMatrix,
+    R::AbstractMatrix;
     clusters = nothing,
-    discretizer_alg = DiscretizeBayesianBlocks(),
-    showprogress = true,
-    wclr = false,
+    discretizer_alg::DiscretizationAlgorithm = DiscretizeBayesianBlocks(),
+    showprogress::Bool = true,
+    wclr::Bool = false,
 )
     clusters = clusters === nothing ? I(size(X, 1)) : clusters
     TE = zeros(eltype(X), size(clusters, 2), length(regulators) * length(targets))
@@ -160,18 +160,19 @@ The number of CUDA blocks to be used can be passed as `N_blocks`; by default thi
 
 """
 function estimate_TE_cu(
-    X::Matrix,
+    X::AbstractMatrix,
     regulators,
     targets,
-    P,
-    QT,
-    R;
+    P::AbstractMatrix,
+    QT::AbstractMatrix,
+    R::AbstractMatrix;
     clusters = nothing,
     disc = nothing,
-    discretizer_alg = DiscretizeBayesianBlocks(),
-    showprogress = true,
-    wclr = false,
-    N_blocks = 1,
+    discretizer_alg::DiscretizationAlgorithm = DiscretizeBayesianBlocks(),
+    showprogress::Bool = true,
+    wclr::Bool = false,
+    N_blocks::Int = 1,
+    mode = :dense
 )
     clusters = clusters === nothing ? I(size(X, 1)) : clusters
     p = showprogress ? Progress(size(clusters, 2)) : nothing
@@ -183,26 +184,45 @@ function estimate_TE_cu(
     P_cu = cu(P)
     QT_cu = cu(QT)
     R_cu = cu(R)
-    clusters_norm_cu = cu(convert(Matrix{eltype(P_cu)}, clusters))
-    clusters_norm_cu ./= sum(clusters_norm_cu; dims = 1)
+    clusters_norm = convert(Matrix{eltype(P_cu)}, clusters)
+    clusters_norm ./= sum(clusters_norm; dims = 1)
+    clusters_norm_cu = cu(clusters_norm)
     # Estimate TE using GPU 
-    TE = CuArray{Float32}(undef, (size(clusters, 2), length(regulators), length(targets)))
+    TE = CuArray{eltype(joint_cache)}(undef, (size(clusters, 2), length(regulators), length(targets)))
     for i = 1:size(clusters, 2)
-        gamma, idx0, idx1 = getcoupling_dense_trimmed(clusters_norm_cu[:, i], P_cu, QT_cu, R_cu)
-        for ((N_x, N_y), (offset_x, offset_y)) in getblocks(length(regulators), length(targets), N_blocks, N_blocks)
-            get_MI!(
-                view(TE, i, :, :),
-                joint_cache,
-                gamma,
-                ids_cu[idx0, :],
-                ids_cu[idx1, :],
-                regulators,
-                targets;
-                offset_x = offset_x,
-                N_x = N_x,
-                offset_y = offset_y,
-                N_y = N_y,
-            )
+        if mode == :dense
+            gamma, idx0, idx1 = getcoupling_dense_trimmed(clusters_norm_cu[:, i], P_cu, QT_cu, R_cu)
+            for ((N_x, N_y), (offset_x, offset_y)) in getblocks(length(regulators), length(targets), N_blocks, N_blocks)
+                get_MI!(
+                    view(TE, i, :, :),
+                    joint_cache,
+                    gamma,
+                    ids_cu[idx0, :],
+                    ids_cu[idx1, :],
+                    regulators,
+                    targets;
+                    offset_x = offset_x,
+                    N_x = N_x,
+                    offset_y = offset_y,
+                    N_y = N_y,
+                )
+            end
+        elseif mode == :sparse
+            I, J, V = getcoupling_sparse(clusters_norm[:, i], P, QT, R)
+            for ((N_x, N_y), (offset_x, offset_y)) in getblocks(length(regulators), length(targets), N_blocks, N_blocks)
+                get_MI!(
+                    view(TE, i, :, :),
+                    joint_cache,
+                    cu(I), cu(J), cu(Array(V)), 
+                    ids_cu,
+                    regulators,
+                    targets;
+                    offset_x = offset_x,
+                    N_x = N_x,
+                    offset_y = offset_y,
+                    N_y = N_y,
+                )
+            end
         end
         if showprogress
             next!(p)

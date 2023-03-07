@@ -1,4 +1,4 @@
-function discretization(x::AbstractVector; alg = DiscretizeUniformWidth(:scott))
+function discretization(x::AbstractVector; alg::DiscretizationAlgorithm = DiscretizeUniformWidth(:scott))
     try
         be = binedges(alg, x)
         disc = LinearDiscretizer(be)
@@ -15,7 +15,7 @@ end
 
 Discretize each column of `X` using algorithm `alg`. 
 """
-function discretizations_bulk(X::AbstractMatrix; alg = DiscretizeBayesianBlocks())
+function discretizations_bulk(X::AbstractMatrix; alg::DiscretizationAlgorithm = DiscretizeBayesianBlocks())
     binedges_all = [binedges(alg, x) for x in eachcol(X)]
     discretizers_all = map(LinearDiscretizer, binedges_all)
     # counts_all = [get_discretization_counts(d, x) for (d, x) in zip(discretizers_all, eachcol(X))]
@@ -29,13 +29,11 @@ function discretized_joint_distribution(
     X::AbstractMatrix,
     i::Int,
     j::Int,
-    row_idxs,
-    col_idxs,
-    row_map,
-    col_map,
+    row_map::AbstractVector{Int},
+    col_map::AbstractVector{Int},
     disc_prev,
     disc_next;
-    alg = DiscretizeUniformWidth(:scott),
+    alg::DiscretizationAlgorithm = DiscretizeUniformWidth(:scott),
 )
     binedges_i_prev, binids_i_prev = disc_prev[i]
     binedges_j_next, binids_j_next = disc_next[j]
@@ -55,14 +53,14 @@ end
 
 function discretized_joint_distribution(
     prod::AbstractSparseMatrix,
-    binids_i_prev::Vector{Int},
-    binids_j_next::Vector{Int},
-    binids_j_prev::Vector{Int},
+    binids_i_prev::AbstractVector{Int},
+    binids_j_next::AbstractVector{Int},
+    binids_j_prev::AbstractVector{Int},
     binedges_i_prev::AbstractVector,
     binedges_j_next::AbstractVector,
     binedges_j_prev::AbstractVector,
-    row_map,
-    col_map,
+    row_map::AbstractVector{Int},
+    col_map::AbstractVector{Int},
 )
     # computes the discrete joint distribution of 
     # (X[i], X_next[j], X[j])

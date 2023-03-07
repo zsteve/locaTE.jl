@@ -3,7 +3,7 @@
 
 Proximal operator for the L1 norm with weight `λ`, ``x \\mapsto λ\\|x\\|_1``. 
 """
-prox_l1(x, λ) = sign(x) * relu(abs(x) - λ)
+prox_l1(x::Real, λ::Real) = sign(x) * relu(abs(x) - λ)
 
 """
     fitsp(G::AbstractMatrix, L::AbstractMatrix, α; ρ = 0.05, λ1 = 25.0, λ2 = 0.075, maxiter = 2500)
@@ -17,12 +17,12 @@ Denoise TE scores by solving the *weighted* L1-L2 regularized regression problem
 function fitsp(
     G::AbstractMatrix,
     L::AbstractMatrix,
-    α;
-    ρ = 0.05,
-    λ1 = 25.0,
-    λ2 = 0.075,
-    maxiter = 2500,
-)
+    α::Real;
+    ρ::Real = 0.05,
+    λ1::Real = 25.0,
+    λ2::Real = 0.075,
+    maxiter::Int = 2500,
+) 
     # scaling factors
     L_scaled = sqrt.(α) * L * sqrt.(α)
     X = similar(G)
@@ -66,11 +66,11 @@ Denoise TE scores by solving the L1-L2 regularized regression problem
 function fitsp(
     G::AbstractMatrix,
     L::AbstractMatrix;
-    ρ = 0.05,
-    λ1 = 25.0,
-    λ2 = 0.075,
-    maxiter = 2500,
-)
+    ρ::Real = 0.05,
+    λ1::Real = 25.0,
+    λ2::Real = 0.075,
+    maxiter::Int = 2500,
+) 
     # scaling factors
     X = similar(G)
     copy!(X, G)
@@ -114,21 +114,21 @@ or manual initialization `U_init, V_init` (`:manual`).
 Returns `U, V` and `trace` containing objective values. 
 """
 function fitnmf(
-    G,
-    L_all,
-    L,
-    H,
-    k;
-    α = 0,
-    β = 0,
-    λ = [0, 0],
-    μ = [0, 0],
-    iter = 500,
-    print_iter = 50,
+    G::AbstractMatrix,
+    L_all::Vector{<:AbstractMatrix},
+    L::AbstractMatrix,
+    H::AbstractMatrix,
+    k::Int;
+    α::Real = 0,
+    β::Real = 0,
+    λ::Vector{<:Real} = [0, 0],
+    μ::Vector{<:Real} = [0, 0],
+    iter::Int = 500,
+    print_iter::Int = 50,
     initialize = :nndsvd,
-    δ = 1e-5,
-    dictionary = false,
-    η = 1.0,
+    δ::Real = 1e-5,
+    dictionary::Bool = false,
+    η::Real = 1.0,
     U_init = nothing,
     V_init = nothing,
 )
@@ -226,20 +226,20 @@ The decomposition is currently initialised using the [Tensorly](http://tensorly.
 Currently only optimises over the factor matrices while keeping `S` fixed (i.e. seeks a CP decomposition)
 """
 function fitntf(
-    G,
-    L,
-    L_g,
-    H,
-    λ,
-    μ,
-    α,
-    β,
-    k;
-    iter = 250,
-    print_iter = 50,
-    dictionary = false,
-    δ = 1e-5,
-    η = 1.0,
+    G::AbstractArray,
+    L::Vector{<:AbstractMatrix},
+    L_g::AbstractMatrix,
+    H::AbstractArray,
+    λ::Vector{<:Real},
+    μ::Vector{<:Real},
+    α::Real,
+    β::Real,
+    k::Int;
+    iter::Int = 250,
+    print_iter::Int = 50,
+    dictionary::Bool = false,
+    δ::Real = 1e-5,
+    η::Real = 1.0,
 )
     tocu = (G isa CuArray ? CuArray : x -> x)
     tocpu = (G isa CuArray ? Array : x -> x)
