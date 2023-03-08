@@ -51,6 +51,10 @@ makedocs(;
     ),
     pages = [
         "Home" => "index.md",
+        "Command line" => "cmdline.md", 
+        "High level API" => "api_hi.md", 
+        "Low level API" => "api_lo.md", 
+        "Examples" => "examples.md", 
 	# No examples for now 
         # "Examples" =>
         #     map(filter!(filename -> endswith(filename, ".md"), readdir(EXAMPLES_OUT))) do x

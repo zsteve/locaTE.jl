@@ -1,46 +1,11 @@
 # locaTE
 
-locaTE is a method for context-specific network inference using _local transfer entropy_. 
+locaTE is a method for context-specific network inference using _local transfer entropy_, 
+which uses inferred information about cellular dynamics (RNA velocity, optimal transport, pseudotime, etc.) 
+to estimate directional information transfer between genes. 
 
-# High-level functions
-```@docs
-estimate_TE
-estimate_TE_cu
-to_backward_kernel
-construct_normalized_laplacian
-```
+For a detailed discussion of the method, please see our [preprint](https://www.biorxiv.org/content/10.1101/2023.01.08.523176v1):
+Zhang, S.Y. and Stumpf, M.P., 2023. Dynamical information enables inference of gene regulation at single-cell scale. bioRxiv, pp.2023-01.
 
-# Low-level functions 
-```@docs
-get_MI
-CLR
-wCLR
-apply_clr
-apply_wclr
-compute_coupling
-```
 
-# Denoising and factor analysis
-```@docs
-fitsp
-fitnmf
-fitntf
-```
 
-# Evaluation
-```@docs
-aupr
-prec_rec_rate
-ep
-auroc
-tp_fp_rate
-```
-
-# Low-level GPU implementation
-```@docs
-get_MI!
-get_joint_cache
-getcoupling_dense
-getcoupling_dense_trimmed
-getcoupling_sparse
-```
