@@ -7,6 +7,7 @@ locaTE is a method for context-specific network inference using _local transfer 
 estimate_TE
 estimate_TE_cu
 to_backward_kernel
+construct_normalized_laplacian
 ```
 
 # Low-level functions 
