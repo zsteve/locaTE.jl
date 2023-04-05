@@ -34,35 +34,31 @@ function get_MI(
     kwargs...,
 )
     @assert length(genes_prev) == length(genes_next)
-    mi = zeros(length(genes_prev))
-    row_idxs, row_map, col_idxs, col_map = construct_index_maps(coupling)
-    # discretize each gene separately
+    mi = Vector{eltype(coupling)}(undef, length(genes_prev))
     disc_prev =
         disc === nothing ?
-        [discretization(X[row_idxs, i]; kwargs...) for i = 1:size(X, 2)] :
-        [(x[1], x[2][row_idxs]) for x in disc]
+        [discretization(X[:, i]; kwargs...) for i = 1:size(X, 2)] :
+        [(x[1], x[2]) for x in disc]
     disc_next =
         disc === nothing ?
-        [discretization(X[col_idxs, i]; kwargs...) for i = 1:size(X, 2)] :
-        [(x[1], x[2][col_idxs]) for x in disc]
+        [discretization(X[:, i]; kwargs...) for i = 1:size(X, 2)] :
+        [(x[1], x[2]) for x in disc]
+    disc_max_size = mapreduce(x -> length(x[1]), max, disc)
+    joint_cache = Array{eltype(coupling)}(undef, disc_max_size, disc_max_size, disc_max_size)
+    # (I,J,V) representation of coupling 
+    I,J,V=findnz(coupling)
     for j = 1:length(genes_prev)
-        try
-            mi[j] = get_conditional_mutual_information(
-                discretized_joint_distribution(
-                    coupling,
-                    X,
-                    genes_prev[j],
-                    genes_next[j],
-                    row_map,
-                    col_map,
-                    disc_prev,
-                    disc_next;
-                    kwargs...,
-                ),
-            )
-        catch e
-            mi[j] = 0
-        end
+        fill!(joint_cache, 0)
+        _discretized_joint_distribution!(
+            joint_cache, 
+            I, J, V,
+            X,
+            genes_prev[j],
+            genes_next[j],
+            disc_prev,
+            disc_next;
+        )
+        mi[j] = 0 # get_conditional_mutual_information(joint_cache)
     end
     mi
 end

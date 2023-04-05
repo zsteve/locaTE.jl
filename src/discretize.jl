@@ -24,57 +24,64 @@ function discretizations_bulk(X::AbstractMatrix; alg::DiscretizationAlgorithm = 
     return zip(binedges_all, binids_all)
 end
 
-function discretized_joint_distribution(
-    prod::AbstractSparseMatrix,
+function _discretized_joint_distribution!(
+    π_genes::AbstractArray, 
+    I::AbstractVector{Int}, J::AbstractVector{Int}, V::AbstractVector,
     X::AbstractMatrix,
     i::Int,
     j::Int,
-    row_map::AbstractVector{Int},
-    col_map::AbstractVector{Int},
     disc_prev,
     disc_next;
-    alg::DiscretizationAlgorithm = DiscretizeUniformWidth(:scott),
 )
     binedges_i_prev, binids_i_prev = disc_prev[i]
     binedges_j_next, binids_j_next = disc_next[j]
     binedges_j_prev, binids_j_prev = disc_prev[j]
-    discretized_joint_distribution(
-        prod,
+    _discretized_joint_distribution!(
+        π_genes, 
+        I, J, V,
         binids_i_prev,
         binids_j_next,
         binids_j_prev,
         binedges_i_prev,
         binedges_j_next,
         binedges_j_prev,
-        row_map,
-        col_map,
     )
 end
 
-function discretized_joint_distribution(
-    prod::AbstractSparseMatrix,
+function _discretized_joint_distribution!(
+    π_genes::AbstractArray, 
+    I::AbstractVector{Int}, J::AbstractVector{Int}, V::AbstractVector,
     binids_i_prev::AbstractVector{Int},
     binids_j_next::AbstractVector{Int},
     binids_j_prev::AbstractVector{Int},
     binedges_i_prev::AbstractVector,
     binedges_j_next::AbstractVector,
     binedges_j_prev::AbstractVector,
-    row_map::AbstractVector{Int},
-    col_map::AbstractVector{Int},
 )
     # computes the discrete joint distribution of 
     # (X[i], X_next[j], X[j])
-    π_genes = zeros(
-        length(binedges_i_prev) - 1,
-        length(binedges_j_next) - 1,
-        length(binedges_j_prev) - 1,
-    ) # this should be relatively small...
-    for (m, n, p) in zip(findnz(prod)...)
-        π_genes[
-            binids_i_prev[row_map[m]],
-            binids_j_next[col_map[n]],
-            binids_j_prev[row_map[m]],
-        ] += p
+    # π_genes = zeros(
+    #     length(binedges_i_prev) - 1,
+    #     length(binedges_j_next) - 1,
+    #     length(binedges_j_prev) - 1,
+    # ) # this should be relatively small...
+    # for (m, n, p) in zip(I, J, V)
+    @inbounds begin
+        for i = 1:length(I)
+            m = I[i]
+            n = J[i]
+            p = V[i]
+            # π_genes[
+            #     binids_i_prev[row_map[m]],
+            #     binids_j_next[col_map[n]],
+            #     binids_j_prev[row_map[m]],
+            # ] += p
+            π_genes[
+                binids_i_prev[m],
+                binids_j_next[n],
+                binids_j_prev[m],
+            ] += p
+        end
     end
-    return π_genes
+    # return π_genes
 end
