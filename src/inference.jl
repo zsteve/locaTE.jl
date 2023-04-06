@@ -49,7 +49,7 @@ function get_MI(
     I,J,V=findnz(coupling)
     for j = 1:length(genes_prev)
         fill!(joint_cache, 0)
-        _discretized_joint_distribution!(
+        discretized_joint_distribution!(
             joint_cache, 
             I, J, V,
             X,
@@ -58,7 +58,7 @@ function get_MI(
             disc_prev,
             disc_next;
         )
-        mi[j] = 0 # get_conditional_mutual_information(joint_cache)
+        mi[j] = get_conditional_mutual_information(joint_cache)
     end
     mi
 end

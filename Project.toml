@@ -1,7 +1,7 @@
 name = "locaTE"
 uuid = "d47a2e43-82e6-47ba-a340-eddb77145d33"
 authors = ["Stephen Zhang <syz@syz.id.au>"]
-version = "0.3.0"
+version = "0.3.1"
 
 [deps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"

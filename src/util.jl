@@ -110,6 +110,6 @@ function findnz(A::AbstractMatrix)
     keysnz = findall(!iszero, A)
     rs = map(k -> k[1], keysnz)
     cs = map(k -> k[2], keysnz)
-    zs = A[keysnz]
+    zs = Array(A[keysnz])
     rs, cs, zs
 end
