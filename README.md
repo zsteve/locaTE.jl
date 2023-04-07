@@ -2,7 +2,7 @@
 
 Cell-specific network inference using *loca*l *T*ransfer *E*ntropy.
 
-To get started, please see the [examples](https://zsteve.phatcode.net/locatedocs/).
+To get started, please see the [documentation](https://zsteve.phatcode.net/locatedocs/).
 
 Code for reproducing the manuscript figures can be found [here](https://github.com/zsteve/locaTE-paper).
 
@@ -41,4 +41,14 @@ Example:
 JULIA_NUM_THREADS=32 julia locaTE_cmd.jl --tau 1 --lambda1 25 --lambda2 0.001 --outdir locaTE_output/ --cutoff 0.3 X.npy X_pca.npy P_velo_dot.npy R.npy 
 ```
 
+## Examples 
+
 For further examples, consult the `examples/` directory. 
+
+## Further information
+
+See the [preprint](https://www.biorxiv.org/content/10.1101/2023.01.08.523176v1).
+
+Zhang, S.Y. and Stumpf, M.P., 2023. 
+Dynamical information enables inference of gene regulation at single-cell scale. bioRxiv, pp.2023-01.
+
