@@ -136,7 +136,7 @@ end
 
 
 """
-    apply_wclr(A, n_genes)
+    apply_wclr(A, n_regulators, n_targets)
 
 Apply `wCLR` to an array of flattened interaction matrices, i.e. of dimensions `(n_cells, n_genes^2)`
 
@@ -144,11 +144,17 @@ Apply `wCLR` to an array of flattened interaction matrices, i.e. of dimensions `
 apply_wclr(A::AbstractArray, n_regulators::Int, n_targets::Int) =
     hcat(map(x -> vec(wCLR(reshape(x, n_regulators, n_targets))), eachrow(A))...)'
 
+apply_wclr(A::AbstractArray, n_genes::Int) =
+    hcat(map(x -> vec(wCLR(reshape(x, n_genes, n_genes))), eachrow(A))...)'
+
 """
-    apply_clr(A, n_genes)
+    apply_clr(A, n_regulators, n_targets)
 
 Apply `CLR` to an array of flattened interaction matrices, i.e. of dimensions `(n_cells, n_genes^2)`
 
 """
 apply_clr(A::AbstractArray, n_regulators::Int, n_targets::Int) =
     hcat(map(x -> vec(CLR(reshape(x, n_regulators, n_targets))), eachrow(A))...)'
+
+apply_clr(A::AbstractArray, n_genes::Int) =
+    hcat(map(x -> vec(CLR(reshape(x, n_genes, n_genes))), eachrow(A))...)'
