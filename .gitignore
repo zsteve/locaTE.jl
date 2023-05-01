@@ -10,6 +10,8 @@ tramp
 
 tmp
 
+.*.swp
+
 # Org-mode
 .org-id-locations
 *_archive
