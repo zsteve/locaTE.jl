@@ -33,7 +33,6 @@ function get_MI(
         discretized_joint_distribution!(
             joint_cache, 
             I, J, V,
-            X,
             genes_prev[j],
             genes_next[j],
             disc_prev,
