@@ -1,23 +1,4 @@
 """
-    construct_index_maps(coupling)
-
-Construct index maps for efficient indexing of sparse coupling matrices.
-
-"""
-function construct_index_maps(coupling::AbstractMatrix)
-    # construct row and col indices/maps
-    w_row = sum(coupling; dims = 2)
-    row_idxs = findnz(w_row)[1]
-    row_map = similar(row_idxs, size(coupling, 1))
-    row_map[row_idxs] .= collect(1:length(row_idxs))
-    w_col = sum(coupling; dims = 1)
-    col_idxs = findnz(w_col)[2]
-    col_map = similar(col_idxs, size(coupling, 1))
-    col_map[col_idxs] .= collect(1:length(col_idxs))
-    return row_idxs, row_map, col_idxs, col_map
-end
-
-"""
     get_MI(X::AbstractMatrix, coupling::AbstractSparseMatrix, genes_prev::Vector{Int}, genes_next::Vector{Int}; disc = nothing, kwargs...)
 
 Computes the TE score for all pairs of genes in `genes_prev, genes_next` from cell-by-gene expression matrix `X` under `coupling`.
@@ -52,7 +33,6 @@ function get_MI(
         discretized_joint_distribution!(
             joint_cache, 
             I, J, V,
-            X,
             genes_prev[j],
             genes_next[j],
             disc_prev,
@@ -161,8 +141,8 @@ end
 Apply `wCLR` to an array of flattened interaction matrices, i.e. of dimensions `(n_cells, n_genes^2)`
 
 """
-apply_wclr(A::AbstractArray, n_genes::Int) =
-    hcat(map(x -> vec(wCLR(reshape(x, n_genes, n_genes))), eachrow(A))...)'
+apply_wclr(A::AbstractArray, n_regulators::Int, n_targets::Int) =
+    hcat(map(x -> vec(wCLR(reshape(x, n_regulators, n_targets))), eachrow(A))...)'
 
 """
     apply_clr(A, n_genes)
@@ -170,5 +150,5 @@ apply_wclr(A::AbstractArray, n_genes::Int) =
 Apply `CLR` to an array of flattened interaction matrices, i.e. of dimensions `(n_cells, n_genes^2)`
 
 """
-apply_clr(A::AbstractArray, n_genes::Int) =
-    hcat(map(x -> vec(CLR(reshape(x, n_genes, n_genes))), eachrow(A))...)'
+apply_clr(A::AbstractArray, n_regulators::Int, n_targets::Int) =
+    hcat(map(x -> vec(CLR(reshape(x, n_regulators, n_targets))), eachrow(A))...)'
