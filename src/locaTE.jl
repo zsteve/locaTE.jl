@@ -77,16 +77,16 @@ end
 
 """
     estimate_TE(
-        X::Matrix,
+        X::AbstractMatrix,
         regulators,
         targets,
-        P,
-        QT,
-        R;
+        P::AbstractMatrix,
+        QT::AbstractMatrix,
+        R::AbstractMatrix;
         clusters = nothing,
-        discretizer_alg = DiscretizeBayesianBlocks(),
-        showprogress = true,
-        wclr = false,
+        discretizer_alg::DiscretizationAlgorithm = DiscretizeBayesianBlocks(),
+        showprogress::Bool = true,
+        wclr::Bool = false,
     )
 
 High-level function for estimating local transfer entropy from cell-by-gene expression matrix `X`, with forward transition kernel `P`, 
@@ -131,7 +131,7 @@ function estimate_TE(
         end
     end
     if wclr
-        TE_clr = apply_wclr(TE, length(regulators)) # todo
+        TE_clr = apply_wclr(TE, length(regulators), length(targets)) 
         TE_clr[isnan.(TE_clr)] .= 0
         return TE_clr
     else
@@ -141,22 +141,25 @@ end
 
 """
     estimate_TE_cu(
-        X::Matrix,
+        X::AbstractMatrix,
         regulators,
         targets,
-        P,
-        QT,
-        R;
+        P::AbstractMatrix,
+        QT::AbstractMatrix,
+        R::AbstractMatrix;
         clusters = nothing,
-        discretizer_alg = DiscretizeBayesianBlocks(),
-        showprogress = true,
-        wclr = false,
-        N_blocks = 1,
+        discretizer_alg::DiscretizationAlgorithm = DiscretizeBayesianBlocks(),
+        showprogress::Bool = true,
+        wclr::Bool = false,
+        N_blocks::Int = 1,
+        mode = :dense 
     )
 
 High-level function for estimating local transfer entropy, utilising GPU acceleration. 
 The usage for this function is identical to `estimate_TE`, except the TE estimation step is done using a CUDA kernel.
 The number of CUDA blocks to be used can be passed as `N_blocks`; by default this is taken to be `1`.
+Two modes are available, `mode = :dense` in which a dense representation of a submatrix of the coupling is used, and 
+`mode = :sparse` in which a truly sparse representation of the coupling is used. 
 
 """
 function estimate_TE_cu(
@@ -230,7 +233,7 @@ function estimate_TE_cu(
     end
     # Copy back to CPU
     if wclr
-        TE_clr = apply_wclr(Array(reshape(TE, size(clusters, 2), :)), length(regulators)) # todo
+        TE_clr = apply_wclr(Array(reshape(TE, size(clusters, 2), :)), length(regulators), length(targets)) 
         TE_clr[isnan.(TE_clr)] .= 0
         return TE_clr
     else

@@ -82,6 +82,7 @@ end
     getcoupling_dense(i, P, QT, R)
 
 Get dense coupling for cell `i`, forward transition matrix `P`, transposed backward transition matrix `QT` and neighbourhood kernel `R`.
+
 """
 function getcoupling_dense(i::Int, P::AbstractMatrix, QT::AbstractMatrix, R::AbstractMatrix)
     # full coupling
@@ -89,21 +90,23 @@ function getcoupling_dense(i::Int, P::AbstractMatrix, QT::AbstractMatrix, R::Abs
     QT * (reshape(pi, :, 1) .* P)
 end
 
-"""
-    getcoupling_dense_trimmed(i, P, QT, R)
+# function getcoupling_dense_trimmed(i::Int, P::AbstractMatrix, QT::AbstractMatrix, R::AbstractMatrix)
+#     # full coupling but remove empty rows/cols
+#     pi = R[i, :]
+#     coupling = QT * (reshape(pi, :, 1) .* P)
+#     row_idxs = vec(sum(coupling; dims = 2) .> 0)
+#     col_idxs = vec(sum(coupling; dims = 1) .> 0)
+#     return coupling[row_idxs, col_idxs], row_idxs, col_idxs
+# end
 
-Get "trimmed" (i.e. removed zero rows and cols) dense coupling for cell `i`, forward transition matrix `P`, transposed backward transition matrix `QT` and neighbourhood kernel `R`.
+"""
+    getcoupling_dense_trimmed(idx, P, QT, R)
+
+Get "trimmed" (i.e. removed zero rows and cols) dense coupling for cell indicator `idx`, 
+forward transition matrix `P`, transposed backward transition matrix `QT` and neighbourhood kernel `R`.
 Returns the trimmed dense coupling, along with `row_idxs` and `col_idxs`.
-"""
-function getcoupling_dense_trimmed(i::Int, P::AbstractMatrix, QT::AbstractMatrix, R::AbstractMatrix)
-    # full coupling but remove empty rows/cols
-    pi = R[i, :]
-    coupling = QT * (reshape(pi, :, 1) .* P)
-    row_idxs = vec(sum(coupling; dims = 2) .> 0)
-    col_idxs = vec(sum(coupling; dims = 1) .> 0)
-    return coupling[row_idxs, col_idxs], row_idxs, col_idxs
-end
 
+"""
 function getcoupling_dense_trimmed(idx::AbstractVector, P::AbstractMatrix, QT::AbstractMatrix, R::AbstractMatrix)
     # full coupling but remove empty rows/cols
     pi = idx' * R
@@ -116,15 +119,10 @@ end
 """
     getcoupling_sparse(i, P, QT, R)
 
-Get sparse coupling for cell `i`, forward transition matrix `P`, transposed backward transition matrix `QT` and neighbourhood kernel `R`.
-"""
-function getcoupling_sparse(i::Int, P::AbstractMatrix, QT::AbstractMatrix, R::AbstractMatrix)
-    # return list of (i, j, v) for sparse coupling representation
-    pi = R[i, :]
-    coupling = QT * (reshape(pi, :, 1) .* P)
-    findnz(sparse(coupling))
-end
+Get sparse coupling for cell indicator `idx`, forward transition matrix `P`, 
+transposed backward transition matrix `QT` and neighbourhood kernel `R`.
 
+"""
 function getcoupling_sparse(idx::AbstractVector, P::AbstractMatrix, QT::AbstractMatrix, R::AbstractMatrix)
     # return list of (i, j, v) for sparse coupling representation
     pi = idx' * R
@@ -132,6 +130,20 @@ function getcoupling_sparse(idx::AbstractVector, P::AbstractMatrix, QT::Abstract
     findnz(sparse(coupling))
 end
 
+# function getcoupling_sparse(i::Int, P::AbstractMatrix, QT::AbstractMatrix, R::AbstractMatrix)
+#     # return list of (i, j, v) for sparse coupling representation
+#     pi = R[i, :]
+#     coupling = QT * (reshape(pi, :, 1) .* P)
+#     findnz(sparse(coupling))
+# end
+
+"""
+    conditional_mutual_information(joint_probs::AbstractArray)
+
+Compute matrix of conditional mutual information `I(X_i, Y_j | X_j)` 
+given a joint distribution cache of dimensions `(i, j, Ni, Nj, Nj)`. 
+
+"""
 function conditional_mutual_information(joint_probs::AbstractArray)
     H_xz = dropdims(mapreduce(xlogx, +, sum(joint_probs; dims = 4); dims = (3, 5)))
     H_yz = dropdims(mapreduce(xlogx, +, sum(joint_probs; dims = 3); dims = (4, 5)))
@@ -140,14 +152,14 @@ function conditional_mutual_information(joint_probs::AbstractArray)
     -H_xz - H_yz + H_xyz + H_z
 end
 
-"""
-    get_joint_cache(N_genes, discret_max_size)
-
-Create joint distribution cache for all pairs of `1:N_genes`.
-"""
-function get_joint_cache(N_genes::Int, discret_max_size::Int)
-    CUDA.fill(0.0f0, N_genes, N_genes, fill(discret_max_size, 3)...)
-end
+# """
+#     get_joint_cache(N_genes, discret_max_size)
+# 
+# Create joint distribution cache for all pairs of `1:N_genes`.
+# """
+# function get_joint_cache(N_genes::Int, discret_max_size::Int)
+#     CUDA.fill(0.0f0, N_genes, N_genes, fill(discret_max_size, 3)...)
+# end
 
 """
     get_joint_cache(N_x, N_y, discret_max_size)
