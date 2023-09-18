@@ -104,6 +104,29 @@ function tp_fp_rate(J::AbstractMatrix, Z::AbstractMatrix, Nq::Integer; kwargs...
     )'
 end
 
+function cdf_norm(x::AbstractArray, A::AbstractMatrix; fits_reg_all = nothing, fits_targ_all = nothing)
+    A_norm = zero(x)
+    if fits_reg_all === nothing fits_reg_all = [fit(Gamma, vcat(A[i, 1:i-1], A[i, i+1:end])) for i = 1:size(A, 1)] end
+    if fits_targ_all === nothing fits_targ_all = [fit(Gamma, vcat(A[1:j-1, j], A[j+1:end, j])) for j = 1:size(A, 2)] end
+    for (i, j) in Iterators.product(1:size(A, 1), 1:size(A, 2))
+        A_norm[i, j] = (cdf(fits_reg_all[i], x[i, j]) + cdf(fits_targ_all[j], x[i, j])) / 2
+    end
+    return A_norm
+end
+
+function apply_cdf_norm(x::AbstractArray, A::AbstractMatrix)
+    A_norm = zero(x)
+    fits_reg_all = [fit(Gamma, vcat(A[i, 1:i-1], A[i, i+1:end])) for i = 1:size(A, 1)]
+    fits_targ_all = [fit(Gamma, vcat(A[1:j-1, j], A[j+1:end, j])) for j = 1:size(A, 2)]
+    @showprogress for (i, _x) in enumerate(eachrow(x))
+        A_norm[i, :] .= vec(cdf_norm(reshape(_x, size(A)...), A;
+                                    fits_reg_all = fits_reg_all, fits_targ_all = fits_targ_all))
+    end
+    A_norm
+end
+
+pmean(x, p; kwargs...) = mean(x .^ p; kwargs...).^(1/p)
+
 # From https://github.com/JuliaPlots/Plots.jl/blob/master/src/recipes.jl 
 # fallback function for finding non-zero elements of non-sparse matrices
 # function findnz(A::AbstractMatrix)

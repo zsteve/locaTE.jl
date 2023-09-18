@@ -43,6 +43,7 @@ export get_MI!,
 export to_backward_kernel
 export construct_normalized_laplacian
 export estimate_TE, estimate_TE_cu
+export cdf_norm, apply_cdf_norm, pmean
 
 function __init__()
     return copy!(tl_decomp, pyimport_conda("tensorly.decomposition", "tensorly"))
