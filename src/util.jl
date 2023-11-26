@@ -104,6 +104,11 @@ function tp_fp_rate(J::AbstractMatrix, Z::AbstractMatrix, Nq::Integer; kwargs...
     )'
 end
 
+"""
+    cdf_fit(x::AbstractVector)
+
+Fit Gamma CDF to `x`, using Normal as fallback. 
+"""
 function cdf_fit(x::AbstractVector)
     try
         fit(Gamma, x)
@@ -113,6 +118,12 @@ function cdf_fit(x::AbstractVector)
     end
 end
 
+"""
+    cdf_norm(x::AbstractArray, A::AbstractMatrix; fits_reg_all = nothing, fits_targ_all = nothing)
+
+Apply CDF normalisation to `x`, while fitting CDFs to entries of `A`. If provided, `fits_reg_all` and `fits_targ_all`
+are vectors of CDFs from `cdf_fit`. 
+"""
 function cdf_norm(x::AbstractArray, A::AbstractMatrix; fits_reg_all = nothing, fits_targ_all = nothing)
     A_norm = zero(x)
     if fits_reg_all === nothing fits_reg_all = [cdf_fit(vcat(A[i, 1:i-1], A[i, i+1:end])) for i = 1:size(A, 1)] end
@@ -123,6 +134,11 @@ function cdf_norm(x::AbstractArray, A::AbstractMatrix; fits_reg_all = nothing, f
     return A_norm
 end
 
+"""
+    apply_cdf_norm(x::AbstractArray, A::AbstractMatrix)
+
+Apply CDF normalisation treating each row of `x` as a flattened score matrix, while fitting CDFs to entries of `A`. 
+"""
 function apply_cdf_norm(x::AbstractArray, A::AbstractMatrix)
     A_norm = zero(x)
     fits_reg_all = [cdf_fit(vcat(A[i, 1:i-1], A[i, i+1:end])) for i = 1:size(A, 1)]
@@ -133,8 +149,6 @@ function apply_cdf_norm(x::AbstractArray, A::AbstractMatrix)
     end
     A_norm
 end
-
-pmean(x, p; kwargs...) = mean(x .^ p; kwargs...).^(1/p)
 
 # From https://github.com/JuliaPlots/Plots.jl/blob/master/src/recipes.jl 
 # fallback function for finding non-zero elements of non-sparse matrices

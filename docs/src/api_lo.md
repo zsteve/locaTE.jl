@@ -7,6 +7,9 @@ wCLR
 apply_clr
 apply_wclr
 compute_coupling
+cdf_fit
+cdf_norm
+apply_cdf_norm
 ```
 
 ## Low-level GPU implementation
