@@ -242,4 +242,43 @@ function estimate_TE_cu(
     end
 end
 
+function estimate_MI(
+    X::AbstractMatrix,
+    genes,
+    R::AbstractMatrix;
+    clusters = nothing,
+    discretizer_alg::DiscretizationAlgorithm = DiscretizeBayesianBlocks(),
+    showprogress::Bool = true,
+    wclr::Bool = false,
+)
+    clusters = clusters === nothing ? I(size(X, 1)) : clusters
+    MI = zeros(eltype(X), size(clusters, 2), length(genes) * length(genes))
+    disc = discretizations_bulk(X; alg = discretizer_alg)
+    gene_idxs = vcat([[j, i]' for i in genes for j in genes]...)
+    p = showprogress ? Progress(size(clusters, 2)) : nothing
+    clusters_norm = convert(Matrix{eltype(R)}, clusters)
+    clusters_norm ./= sum(clusters_norm; dims = 1)
+    for i = 1:size(clusters, 2)
+        MI[i, :] = get_MI_symm(
+            X,
+            vec(sum(clusters_norm[:, i] .* R; dims = 1)), 
+            gene_idxs[:, 1],
+            gene_idxs[:, 2];
+            disc = disc,
+            alg = discretizer_alg,
+        )
+        if showprogress
+            next!(p)
+        end
+    end
+    if wclr
+        MI_clr = apply_wclr(MI, length(genes), length(genes)) 
+        MI_clr[isnan.(MI_clr)] .= 0
+        return MI_clr
+    else
+        return MI
+    end
+end
+
+
 end # module

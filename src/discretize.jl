@@ -99,3 +99,39 @@ function discretized_joint_distribution!(
         end
     end
 end
+
+# Experimental: local MI
+function discretized_joint_distribution!(
+    π_genes::AbstractArray, 
+    p::AbstractVector,
+    i::Int,
+    j::Int,
+    disc
+)
+    binedges_i, binids_i = disc[i]
+    binedges_j, binids_j = disc[j]
+    discretized_joint_distribution!(
+        π_genes, 
+        p, 
+        binids_i,
+        binids_j,
+    )
+end
+
+function discretized_joint_distribution!(
+    π_genes::AbstractArray, 
+    p::AbstractVector,
+    binids_i::AbstractVector{Int},
+    binids_j::AbstractVector{Int},
+)
+    # computes the discrete joint distribution of 
+    # (X[i], X[j])
+    @inbounds begin
+        for (m, x) in enumerate(p)
+            π_genes[
+                binids_i[m],
+                binids_j[m],
+            ] += x
+        end
+    end
+end

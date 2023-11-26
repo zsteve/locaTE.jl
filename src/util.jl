@@ -56,7 +56,7 @@ Entries of `J` such that `abs.(J) .> J_thresh` are treated as true edges.
 """
 function prec_rec_rate(J::AbstractMatrix, Z::AbstractMatrix, q::Real; J_thresh = 0.5)
     edges_true = (abs.(J) .> J_thresh)
-    edges_infer = (Z .> (minimum(Z) + q * (maximum(Z) - minimum(Z))))
+    edges_infer = (Z .>= (minimum(Z) + q * (maximum(Z) - minimum(Z))))
     tp = sum(edges_true .& edges_infer)
     fp = sum(.!edges_true .& edges_infer)
     fn = sum(edges_true .& .!edges_infer)
@@ -72,7 +72,7 @@ function prec_rec_rate(J::AbstractMatrix, Z::AbstractMatrix, Nq::Integer; kwargs
     hcat(
         [
             prec_rec_rate(J, Z, q; kwargs...) for
-            q in range(0 - 1e-6, 1 + 1e-6; length = Nq)
+            q in range(0 - 1e-6, 1; length = Nq)
         ]...,
     )'
 end
@@ -85,7 +85,7 @@ Entries of `J` such that `abs.(J) .> J_thresh` are treated as true edges.
 """
 function tp_fp_rate(J::AbstractMatrix, Z::AbstractMatrix, q::Real; J_thresh = 0.5)
     edges_true = (abs.(J) .>= J_thresh)
-    edges_infer = (Z .> (minimum(Z) + q * (maximum(Z) - minimum(Z))))
+    edges_infer = (Z .>= (minimum(Z) + q * (maximum(Z) - minimum(Z))))
     tp = sum(edges_true .& edges_infer)
     fp = sum(.!edges_true .& edges_infer)
     fn = sum(edges_true .& .!edges_infer)
@@ -100,7 +100,7 @@ Compute vectors of true positive and false positive rates for `Nq` uniformly spa
 """
 function tp_fp_rate(J::AbstractMatrix, Z::AbstractMatrix, Nq::Integer; kwargs...)
     hcat(
-        [tp_fp_rate(J, Z, q; kwargs...) for q in range(0 - 1e-6, 1 + 1e-6; length = Nq)]...,
+        [tp_fp_rate(J, Z, q; kwargs...) for q in range(0 - 1e-6, 1; length = Nq)]...,
     )'
 end
 

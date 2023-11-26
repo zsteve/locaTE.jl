@@ -145,6 +145,14 @@ G = Array(
     ),
 )
 
+A = reshape(maximum(G; dims = 1), size(X, 2), size(X, 2))
+G_cdf = locaTE.apply_cdf_norm(G, A .+ 1e-9);
+G_static = reshape(mean(G; dims = 1), size(X, 2), size(X, 2));
+G_static_cdf = locaTE.cdf_norm(G_static, G_static .+ 1e-9);
+
 npzwrite(joinpath(args["outdir"], "G$(args["suffix"]).npy"), G)
+npzwrite(joinpath(args["outdir"], "G_cdf$(args["suffix"]).npy"), G_cdf)
+npzwrite(joinpath(args["outdir"], "G_static$(args["suffix"]).npy"), G_static)
+npzwrite(joinpath(args["outdir"], "G_static_cdf$(args["suffix"]).npy"), G_static_cdf)
 npzwrite(joinpath(args["outdir"], "TE$(args["suffix"]).npy"), TE)
 npzwrite(joinpath(args["outdir"], "L$(args["suffix"]).npy"), Array(L))

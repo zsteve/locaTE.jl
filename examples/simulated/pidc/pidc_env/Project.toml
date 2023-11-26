@@ -1,0 +1,8 @@
+[deps]
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+NNlib = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
+NPZ = "15e1cf62-19b3-5cfa-8e77-841668bca605"
+NetworkInference = "6b44d3db-2bc5-5ac3-b70f-26aa69b1b11b"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"

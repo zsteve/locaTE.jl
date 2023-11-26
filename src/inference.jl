@@ -158,3 +158,38 @@ apply_clr(A::AbstractArray, n_regulators::Int, n_targets::Int) =
 
 apply_clr(A::AbstractArray, n_genes::Int) =
     hcat(map(x -> vec(CLR(reshape(x, n_genes, n_genes))), eachrow(A))...)'
+
+## Experimental: undirected inference
+
+function get_MI_symm(
+    X::AbstractMatrix,
+    p::AbstractVector,
+    genes_i::Vector{Int},
+    genes_j::Vector{Int}; 
+    disc = nothing,
+    kwargs...,
+)
+    mi = Vector{eltype(p)}(undef, length(genes_i))
+    disc =
+        disc === nothing ?
+        [discretization(X[:, i]; kwargs...) for i = 1:size(X, 2)] :
+        [(x[1], x[2]) for x in disc]
+    disc_max_size = mapreduce(x -> length(x[1]), max, disc)
+    joint_cache = Array{eltype(p)}(undef, disc_max_size, disc_max_size)
+    for j = 1:length(genes_i)
+        mi[j] = if genes_i[j] == genes_j[j]
+            0
+        else
+            fill!(joint_cache, 0)
+            discretized_joint_distribution!(
+                joint_cache, 
+                p, 
+                genes_i[j],
+                genes_j[j],
+                disc,
+            )
+            get_mutual_information(joint_cache)
+        end
+    end
+    mi
+end
