@@ -24,7 +24,7 @@ Discretize each column of `X` using algorithm `alg`.
 
 """
 function discretizations_bulk(X::AbstractMatrix; alg::DiscretizationAlgorithm = DiscretizeBayesianBlocks())
-    binedges_all = [binedges(alg, x) for x in eachcol(X)]
+    binedges_all = [try; binedges(alg, x); catch e; [0., 1.]; end for x in eachcol(X)]
     discretizers_all = map(LinearDiscretizer, binedges_all)
     binids_all = [encode(discretizers_all[i], X[:, i]) for i = 1:size(X, 2)]
     return zip(binedges_all, binids_all)
